@@ -1,0 +1,42 @@
+[
+  {
+    "Username": "ghmx.superadmin",
+    "password": "GHMX-Root-2026!",
+    "company": "GHMX Convention",
+    "Volunteer": "1",
+    "owner": "1",
+    "Judge": "1",
+    "admin": "1",
+    "Super admin": "1"
+  },
+  {
+    "Username": "vendor.admin",
+    "password": "VendorAdmin!2026",
+    "company": "Example Vendor Co",
+    "Volunteer": "",
+    "owner": "1",
+    "Judge": "",
+    "admin": "1",
+    "Super admin": ""
+  },
+  {
+    "Username": "judge.demo",
+    "password": "JudgeDemo!2026",
+    "company": "Example Vendor Co",
+    "Volunteer": "",
+    "owner": "",
+    "Judge": "1",
+    "admin": "",
+    "Super admin": ""
+  },
+  {
+    "Username": "volunteer.demo",
+    "password": "Volunteer!2026",
+    "company": "GHMX Convention",
+    "Volunteer": "1",
+    "owner": "",
+    "Judge": "",
+    "admin": "",
+    "Super admin": ""
+  }
+]

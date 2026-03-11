@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2f1e2a"/>
+      <stop offset="100%" stop-color="#0f0f19"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="900" fill="url(#bg)"/>
+  <text x="700" y="120" text-anchor="middle" fill="#ffc57a" font-size="72" font-family="Arial, sans-serif">GHMX Bump-in Map</text>
+  <rect x="110" y="180" width="1180" height="620" rx="20" fill="#1a2438" stroke="#49c9be" stroke-width="4"/>
+  <path d="M200 260 H1180" stroke="#4ed3c3" stroke-width="5" stroke-dasharray="16 10"/>
+  <path d="M200 420 H1180" stroke="#4ed3c3" stroke-width="5" stroke-dasharray="16 10"/>
+  <path d="M200 580 H1180" stroke="#4ed3c3" stroke-width="5" stroke-dasharray="16 10"/>
+  <rect x="230" y="220" width="250" height="520" fill="#243954" stroke="#ffbd6e" stroke-width="3"/>
+  <rect x="560" y="220" width="250" height="520" fill="#243954" stroke="#ffbd6e" stroke-width="3"/>
+  <rect x="890" y="220" width="250" height="520" fill="#243954" stroke="#ffbd6e" stroke-width="3"/>
+  <text x="355" y="510" text-anchor="middle" fill="#f0f3f8" font-size="38" font-family="Arial, sans-serif">Dock 1</text>
+  <text x="685" y="510" text-anchor="middle" fill="#f0f3f8" font-size="38" font-family="Arial, sans-serif">Dock 2</text>
+  <text x="1015" y="510" text-anchor="middle" fill="#f0f3f8" font-size="38" font-family="Arial, sans-serif">Dock 3</text>
+  <text x="700" y="845" text-anchor="middle" fill="#9eb7d8" font-size="30" font-family="Arial, sans-serif">Replace this placeholder with your official bump-in map URL in data/site-config.json</text>
+</svg>

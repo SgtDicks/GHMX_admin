@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f2f4c"/>
+      <stop offset="100%" stop-color="#0a121f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="900" fill="url(#bg)"/>
+  <text x="700" y="120" text-anchor="middle" fill="#ffd18a" font-size="72" font-family="Arial, sans-serif">GHMX Venue Map</text>
+  <rect x="110" y="180" width="1180" height="620" rx="20" fill="#132238" stroke="#57dbc8" stroke-width="4"/>
+  <rect x="170" y="250" width="310" height="210" fill="#27456b" stroke="#ffc268" stroke-width="3"/>
+  <rect x="530" y="250" width="310" height="210" fill="#27456b" stroke="#ffc268" stroke-width="3"/>
+  <rect x="890" y="250" width="310" height="210" fill="#27456b" stroke="#ffc268" stroke-width="3"/>
+  <rect x="170" y="500" width="470" height="240" fill="#233d59" stroke="#ffc268" stroke-width="3"/>
+  <rect x="690" y="500" width="510" height="240" fill="#233d59" stroke="#ffc268" stroke-width="3"/>
+  <text x="325" y="360" text-anchor="middle" fill="#e9edf5" font-size="40" font-family="Arial, sans-serif">Hall A</text>
+  <text x="685" y="360" text-anchor="middle" fill="#e9edf5" font-size="40" font-family="Arial, sans-serif">Hall B</text>
+  <text x="1045" y="360" text-anchor="middle" fill="#e9edf5" font-size="40" font-family="Arial, sans-serif">Hall C</text>
+  <text x="405" y="640" text-anchor="middle" fill="#e9edf5" font-size="40" font-family="Arial, sans-serif">Vendor Zone</text>
+  <text x="945" y="640" text-anchor="middle" fill="#e9edf5" font-size="40" font-family="Arial, sans-serif">Competition Floor</text>
+  <text x="700" y="845" text-anchor="middle" fill="#9eb7d8" font-size="30" font-family="Arial, sans-serif">Replace this placeholder with your official venue map URL in data/site-config.json</text>
+</svg>

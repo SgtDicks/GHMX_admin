@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GHMX Convention Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="background-layer"></div>
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">GHMX Convention</p>
+        <h1>Vendor & Competition Control Portal</h1>
+      </div>
+      <div id="session-chip" class="session-chip hidden">
+        <span id="session-user"></span>
+        <button id="logout-btn" type="button">Logout</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section id="login-view" class="card login-card">
+        <h2>Staff Login</h2>
+        <p>Use your GHMX username and password to access role-based tools.</p>
+        <form id="login-form" autocomplete="off">
+          <label for="username">Username</label>
+          <input id="username" name="username" required />
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required />
+          <button type="submit">Sign in</button>
+        </form>
+        <p id="login-status" class="status"></p>
+      </section>
+
+      <section id="app-view" class="hidden">
+        <nav class="tab-row" id="tab-row">
+          <button class="tab active" data-target="overview-panel">Overview</button>
+          <button class="tab hidden" data-target="users-panel" data-role="manager">User Accounts</button>
+          <button class="tab hidden" data-target="judging-panel" data-role="judge">Judging Desk</button>
+          <button class="tab hidden" data-target="volunteer-panel" data-role="volunteer">Volunteer Intake</button>
+          <button class="tab" data-target="venue-panel">Venue Map</button>
+          <button class="tab" data-target="bumpin-panel">Bump-in Map</button>
+        </nav>
+
+        <section id="overview-panel" class="card panel active">
+          <h2 id="event-title">GHMX Convention Portal</h2>
+          <p id="event-summary"></p>
+          <div class="overview-grid">
+            <article>
+              <h3>Event Snapshot</h3>
+              <ul>
+                <li><strong>Venue:</strong> <span id="event-venue"></span></li>
+                <li><strong>Dates:</strong> <span id="event-dates"></span></li>
+                <li><strong>Focus:</strong> Scale model build competition + hobby expo</li>
+              </ul>
+            </article>
+            <article>
+              <h3>Core Roles</h3>
+              <ul>
+                <li><strong>Super admin:</strong> All companies, all users.</li>
+                <li><strong>Admin:</strong> Own company and staff.</li>
+                <li><strong>Judge:</strong> Submit competition scoring.</li>
+                <li><strong>Volunteer:</strong> Add entries through Google Form.</li>
+              </ul>
+            </article>
+          </div>
+          <a id="official-link" class="button-link" target="_blank" rel="noreferrer">Open Official GHMX Site</a>
+        </section>
+
+        <section id="users-panel" class="card panel hidden">
+          <div class="panel-head">
+            <h2>User Account Control</h2>
+            <div class="inline-actions">
+              <button id="export-users-btn" type="button">Export JSON</button>
+              <button id="import-users-btn" type="button">Import JSON</button>
+              <input id="import-users-input" type="file" accept="application/json" class="hidden" />
+            </div>
+          </div>
+          <p class="hint">
+            User changes are stored in browser local storage for GitHub Pages compatibility.
+          </p>
+          <div class="split">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Company</th>
+                    <th>Roles</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body"></tbody>
+              </table>
+            </div>
+            <form id="user-form">
+              <h3 id="user-form-title">Create User</h3>
+              <input type="hidden" id="edit-username" />
+              <label for="form-username">Username</label>
+              <input id="form-username" required />
+              <label for="form-password">Password</label>
+              <input id="form-password" type="password" />
+              <label for="form-company">Company</label>
+              <input id="form-company" required />
+              <fieldset>
+                <legend>Role Flags (use 1 for enabled)</legend>
+                <label><input id="role-volunteer" type="checkbox" /> Volunteer</label>
+                <label><input id="role-owner" type="checkbox" /> Owner</label>
+                <label><input id="role-judge" type="checkbox" /> Judge</label>
+                <label><input id="role-admin" type="checkbox" /> Admin</label>
+                <label><input id="role-super-admin" type="checkbox" /> Super admin</label>
+              </fieldset>
+              <div class="inline-actions">
+                <button type="submit">Save User</button>
+                <button type="button" id="reset-user-form-btn">Clear</button>
+              </div>
+              <p id="user-form-status" class="status"></p>
+            </form>
+          </div>
+        </section>
+
+        <section id="judging-panel" class="card panel hidden">
+          <h2>Scale Model Judging Desk</h2>
+          <p>Scores are submitted to Google Sheets via the configured endpoint.</p>
+          <form id="judge-form">
+            <div class="judge-grid">
+              <div class="field">
+                <label for="judge-entrant-id">Entrant ID</label>
+                <input id="judge-entrant-id" required />
+              </div>
+              <div class="field">
+                <label for="judge-title">Build Title</label>
+                <input id="judge-title" required />
+              </div>
+              <div class="field">
+                <label for="judge-category">Category</label>
+                <select id="judge-category" required>
+                  <option value="">Select a category</option>
+                  <option>Aircraft</option>
+                  <option>Armour</option>
+                  <option>Automotive</option>
+                  <option>Sci-Fi</option>
+                  <option>Diorama</option>
+                  <option>Figures</option>
+                  <option>Junior</option>
+                  <option>Themed Build</option>
+                </select>
+              </div>
+            </div>
+            <div class="score-grid">
+              <div class="score-card">
+                <label for="score-craftsmanship">Craftsmanship <span>(0-25)</span></label>
+                <input id="score-craftsmanship" type="number" min="0" max="25" step="1" value="0" required />
+              </div>
+              <div class="score-card">
+                <label for="score-presentation">Presentation <span>(0-25)</span></label>
+                <input id="score-presentation" type="number" min="0" max="25" step="1" value="0" required />
+              </div>
+              <div class="score-card">
+                <label for="score-difficulty">Difficulty <span>(0-25)</span></label>
+                <input id="score-difficulty" type="number" min="0" max="25" step="1" value="0" required />
+              </div>
+              <div class="score-card">
+                <label for="score-theme">Theme Fit <span>(0-25)</span></label>
+                <input id="score-theme" type="number" min="0" max="25" step="1" value="0" required />
+              </div>
+            </div>
+            <div class="field field-full">
+              <label for="judge-comments">Comments</label>
+              <textarea id="judge-comments" rows="4"></textarea>
+            </div>
+            <p class="total-score">Total Score: <strong id="judge-total">0</strong>/100</p>
+            <button id="judge-submit-btn" type="submit">Submit Judge Score</button>
+          </form>
+          <p id="judge-status" class="status"></p>
+          <a id="judge-fallback-link" class="button-link hidden" target="_blank" rel="noreferrer">Open Judge Google Form</a>
+        </section>
+
+        <section id="volunteer-panel" class="card panel hidden">
+          <h2>Volunteer Entry Intake</h2>
+          <p>
+            This section can embed a Google Form directly. If embed URL is not set, use the open-form button.
+          </p>
+          <a id="volunteer-link" class="button-link" target="_blank" rel="noreferrer">Open Volunteer Google Form</a>
+          <iframe id="volunteer-iframe" class="hidden" title="Volunteer Google Form"></iframe>
+        </section>
+
+        <section id="venue-panel" class="card panel">
+          <h2>Venue Map</h2>
+          <iframe id="venue-map-frame" title="Venue map"></iframe>
+          <a id="venue-map-link" class="button-link" target="_blank" rel="noreferrer">Open Venue Map</a>
+        </section>
+
+        <section id="bumpin-panel" class="card panel">
+          <h2>Bump-in Map</h2>
+          <iframe id="bumpin-map-frame" title="Bump-in map"></iframe>
+          <a id="bumpin-map-link" class="button-link" target="_blank" rel="noreferrer">Open Bump-in Map</a>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "event": {
+    "title": "GHMX Convention Staff Portal",
+    "summary": "GHMX (GameX) is an all-ages Gaming, Hobby & Model Expo hosted at the Brisbane Showgrounds. This portal manages staff access, model judging, volunteer intake, and logistics maps.",
+    "venue": "Exhibition Building, Brisbane Showgrounds, 601 Gregory Terrace, Bowen Hills QLD 4006",
+    "dates": "Latest published event window: 22-23 November 2025, 10:00 AM-5:00 PM",
+    "officialUrl": "https://www.ghmx.com.au/"
+  },
+  "google": {
+    "judgeAppsScriptUrl": "",
+    "judgeFallbackFormUrl": "",
+    "volunteerFormUrl": "",
+    "volunteerEmbedUrl": ""
+  },
+  "maps": {
+    "venueMapUrl": "assets/maps/venue-map-placeholder.svg",
+    "bumpInMapUrl": "assets/maps/bump-in-map-placeholder.svg"
+  }
+}

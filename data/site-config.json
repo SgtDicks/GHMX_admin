@@ -13,7 +13,12 @@
     "volunteerEmbedUrl": ""
   },
   "maps": {
-    "venueMapUrl": "assets/maps/venue-map-placeholder.svg",
+    "venueMapUrl": "https://sgtdicks.github.io/GhMX/map.html",
     "bumpInMapUrl": "assets/maps/bump-in-map-placeholder.svg"
+  },
+  "supabase": {
+    "enabled": true,
+    "url": "https://dzelezydmrxzpjznjymx.supabase.co",
+    "publishableKey": "sb_publishable_aZHNYRTWpRzDp8H04dH0gw_pGaKGOwz"
   }
 }

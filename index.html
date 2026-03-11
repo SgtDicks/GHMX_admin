@@ -19,9 +19,12 @@
         <p class="eyebrow">GHMX Convention</p>
         <h1>Vendor & Competition Control Portal</h1>
       </div>
-      <div id="session-chip" class="session-chip hidden">
-        <span id="session-user"></span>
-        <button id="logout-btn" type="button">Logout</button>
+      <div class="header-actions">
+        <p id="storage-chip" class="storage-chip">Storage: checking...</p>
+        <div id="session-chip" class="session-chip hidden">
+          <span id="session-user"></span>
+          <button id="logout-btn" type="button">Logout</button>
+        </div>
       </div>
     </header>
 
@@ -44,6 +47,7 @@
           <button class="tab active" data-target="overview-panel">Overview</button>
           <button class="tab hidden" data-target="users-panel" data-role="manager">User Accounts</button>
           <button class="tab hidden" data-target="judging-panel" data-role="judge">Judging Desk</button>
+          <button class="tab hidden" data-target="results-panel" data-role="judge">Results</button>
           <button class="tab hidden" data-target="volunteer-panel" data-role="volunteer">Volunteer Intake</button>
           <button class="tab" data-target="venue-panel">Venue Map</button>
           <button class="tab" data-target="bumpin-panel">Bump-in Map</button>
@@ -66,6 +70,7 @@
               <ul>
                 <li><strong>Super admin:</strong> All companies, all users.</li>
                 <li><strong>Admin:</strong> Own company and staff.</li>
+                <li><strong>Owner:</strong> Add users for their own company.</li>
                 <li><strong>Judge:</strong> Submit competition scoring.</li>
                 <li><strong>Volunteer:</strong> Add entries through Google Form.</li>
               </ul>
@@ -83,7 +88,7 @@
               <input id="import-users-input" type="file" accept="application/json" class="hidden" />
             </div>
           </div>
-          <p class="hint">
+          <p id="users-storage-hint" class="hint">
             User changes are stored in browser local storage for GitHub Pages compatibility.
           </p>
           <div class="split">
@@ -128,16 +133,12 @@
 
         <section id="judging-panel" class="card panel hidden">
           <h2>Scale Model Judging Desk</h2>
-          <p>Scores are submitted to Google Sheets via the configured endpoint.</p>
+          <p>Scores are submitted to Supabase when live, otherwise the configured fallback endpoint is used.</p>
           <form id="judge-form">
             <div class="judge-grid">
               <div class="field">
                 <label for="judge-entrant-id">Entrant ID</label>
                 <input id="judge-entrant-id" required />
-              </div>
-              <div class="field">
-                <label for="judge-title">Build Title</label>
-                <input id="judge-title" required />
               </div>
               <div class="field">
                 <label for="judge-category">Category</label>
@@ -180,7 +181,41 @@
             <button id="judge-submit-btn" type="submit">Submit Judge Score</button>
           </form>
           <p id="judge-status" class="status"></p>
+          <section class="results-panel">
+            <div class="panel-head">
+              <h3>Recent Results</h3>
+              <button id="refresh-results-btn" type="button">Refresh Results</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Submitted</th>
+                    <th>Entrant ID</th>
+                    <th>Category</th>
+                    <th>Total</th>
+                    <th>Comments</th>
+                  </tr>
+                </thead>
+                <tbody id="judge-results-body"></tbody>
+              </table>
+            </div>
+          </section>
           <a id="judge-fallback-link" class="button-link hidden" target="_blank" rel="noreferrer">Open Judge Google Form</a>
+        </section>
+
+        <section id="results-panel" class="card panel hidden">
+          <div class="panel-head">
+            <div>
+              <h2>Category Leaders</h2>
+              <p class="hint">
+                Rankings are based on average total score per entrant in each category. Judges can review the current top 5.
+              </p>
+            </div>
+            <button id="refresh-leaderboard-btn" type="button">Refresh Leaderboard</button>
+          </div>
+          <p id="results-status" class="status"></p>
+          <div id="category-results-grid" class="category-results-grid"></div>
         </section>
 
         <section id="volunteer-panel" class="card panel hidden">

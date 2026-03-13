@@ -35,6 +35,8 @@ const SUPABASE_FUNCTIONS = {
   submitJudgeScore: "portal_submit_judge_score",
   listJudgeResults: "portal_list_judge_results",
   listCategoryLeaders: "portal_list_category_leaders",
+  listAllJudgeResults: "portal_list_all_judge_results",
+  deleteJudgeResults: "portal_delete_judge_results",
 };
 
 const DEFAULT_CONFIG = {
@@ -72,6 +74,9 @@ const state = {
   storageMode: STORAGE_MODE_LOCAL,
   judgeResults: [],
   categoryLeaders: [],
+  adminJudgeResults: [],
+  selectedJudgeResultIds: new Set(),
+  userSearchTerm: "",
 };
 
 const els = {
@@ -97,10 +102,20 @@ const els = {
   userFormTitle: document.getElementById("user-form-title"),
   userFormStatus: document.getElementById("user-form-status"),
   usersStorageHint: document.getElementById("users-storage-hint"),
+  openUserEditorBtn: document.getElementById("open-user-editor-btn"),
+  closeUserEditorBtn: document.getElementById("close-user-editor-btn"),
+  userEditorOverlay: document.getElementById("user-editor-overlay"),
+  userSearch: document.getElementById("user-search"),
+  usersSummary: document.getElementById("users-summary"),
+  usersListCaption: document.getElementById("users-list-caption"),
+  userFormScope: document.getElementById("user-form-scope"),
   editUsername: document.getElementById("edit-username"),
+  formFullName: document.getElementById("form-full-name"),
+  formEmail: document.getElementById("form-email"),
   formUsername: document.getElementById("form-username"),
   formPassword: document.getElementById("form-password"),
   formCompany: document.getElementById("form-company"),
+  formStatus: document.getElementById("form-status"),
   roleVolunteer: document.getElementById("role-volunteer"),
   roleOwner: document.getElementById("role-owner"),
   roleJudge: document.getElementById("role-judge"),
@@ -119,6 +134,13 @@ const els = {
   resultsStatus: document.getElementById("results-status"),
   categoryResultsGrid: document.getElementById("category-results-grid"),
   refreshLeaderboardBtn: document.getElementById("refresh-leaderboard-btn"),
+  judgeResultsAdminPanel: document.getElementById("judge-results-admin-panel"),
+  manageResultsStatus: document.getElementById("manage-results-status"),
+  refreshAdminResultsBtn: document.getElementById("refresh-admin-results-btn"),
+  deleteSelectedResultsBtn: document.getElementById("delete-selected-results-btn"),
+  purgeResultsBtn: document.getElementById("purge-results-btn"),
+  selectAllResults: document.getElementById("select-all-results"),
+  adminResultsBody: document.getElementById("admin-results-body"),
   judgeFallbackLink: document.getElementById("judge-fallback-link"),
   volunteerLink: document.getElementById("volunteer-link"),
   volunteerIframe: document.getElementById("volunteer-iframe"),
@@ -135,6 +157,7 @@ init().catch((error) => {
 });
 
 async function init() {
+  mountUserEditorOverlay();
   bindEvents();
   await Promise.all([loadConfig(), loadSeedUsers()]);
   renderOverview();
@@ -150,13 +173,22 @@ async function init() {
   if (state.currentUser && canAccessUserAccounts(state.currentUser)) {
     await refreshManagedUsers();
   }
-  await refreshJudgeResults();
-  await refreshCategoryLeaders();
+  await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
   renderUsersTable();
   if (state.currentUser) {
     showApp();
   } else {
     showLogin();
+  }
+}
+
+function mountUserEditorOverlay() {
+  if (!els.userEditorOverlay) {
+    return;
+  }
+
+  if (els.userEditorOverlay.parentElement !== document.body) {
+    document.body.appendChild(els.userEditorOverlay);
   }
 }
 
@@ -167,6 +199,10 @@ function bindEvents() {
   els.usersTableBody.addEventListener("click", onUsersTableClick);
   els.userForm.addEventListener("submit", onUserFormSubmit);
   els.resetUserFormBtn.addEventListener("click", () => clearUserForm());
+  els.openUserEditorBtn?.addEventListener("click", openNewUserEditor);
+  els.closeUserEditorBtn?.addEventListener("click", closeUserEditor);
+  els.userEditorOverlay?.addEventListener("click", onUserEditorOverlayClick);
+  els.userSearch?.addEventListener("input", onUserSearchInput);
   els.exportUsersBtn.addEventListener("click", exportUsersJson);
   els.importUsersBtn.addEventListener("click", () => els.importUsersInput.click());
   els.importUsersInput.addEventListener("change", onImportUsers);
@@ -177,6 +213,17 @@ function bindEvents() {
   els.refreshLeaderboardBtn?.addEventListener("click", () => {
     void refreshCategoryLeaders(true);
   });
+  els.refreshAdminResultsBtn?.addEventListener("click", () => {
+    void refreshAdminJudgeResults(true);
+  });
+  els.deleteSelectedResultsBtn?.addEventListener("click", () => {
+    void deleteSelectedJudgeResults();
+  });
+  els.purgeResultsBtn?.addEventListener("click", () => {
+    void purgeAllJudgeResults();
+  });
+  els.selectAllResults?.addEventListener("change", onToggleAllJudgeResults);
+  els.adminResultsBody?.addEventListener("change", onAdminResultsSelectionChange);
   SCORE_INPUT_IDS.forEach((id) => {
     const input = document.getElementById(id);
     input.addEventListener("input", updateJudgeTotal);
@@ -297,17 +344,19 @@ async function onLoginSubmit(event) {
 }
 
 async function finishLogin(user, password, { statusMessage = "" } = {}) {
-  state.currentUser = user;
+  state.currentUser =
+    state.storageMode === STORAGE_MODE_LOCAL ? markLocalUserLogin(user.Username) || user : user;
   state.sessionSecret = state.storageMode === STORAGE_MODE_SUPABASE ? password : "";
-  writeStoredSession(user.Username, state.sessionSecret);
+  writeStoredSession(state.currentUser.Username, state.sessionSecret);
   if (canAccessUserAccounts(user)) {
     await refreshManagedUsers();
   } else if (state.storageMode === STORAGE_MODE_SUPABASE) {
     state.users = [];
   }
-  await Promise.all([refreshJudgeResults(), refreshCategoryLeaders()]);
+  await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
   refreshRoleSections();
   updateUserAdminControls();
+  updateJudgeResultAdminControls();
   renderUsersTable();
   showApp();
   if (statusMessage) {
@@ -320,13 +369,22 @@ function logout() {
   state.sessionSecret = "";
   state.judgeResults = [];
   state.categoryLeaders = [];
+  state.adminJudgeResults = [];
+  state.selectedJudgeResultIds = new Set();
+  state.userSearchTerm = "";
+  if (els.userSearch) {
+    els.userSearch.value = "";
+  }
   clearStoredSession();
   showLogin();
   refreshRoleSections();
   updateUserAdminControls();
+  updateJudgeResultAdminControls();
   renderJudgeResults();
   renderCategoryLeaders();
+  renderAdminJudgeResults();
   setStatus(els.resultsStatus, "");
+  setStatus(els.manageResultsStatus, "");
   renderUsersTable();
 }
 
@@ -334,6 +392,7 @@ function showLogin() {
   els.loginView.classList.remove("hidden");
   els.appView.classList.add("hidden");
   els.sessionChip.classList.add("hidden");
+  setUserEditorOpen(false);
   clearUserForm();
   setStatus(els.loginStatus, "");
 }
@@ -347,7 +406,7 @@ function showApp() {
   els.appView.classList.remove("hidden");
   els.sessionChip.classList.remove("hidden");
   const roleSummary = listRoles(state.currentUser).join(", ") || "User";
-  els.sessionUser.textContent = `${state.currentUser.Username} | ${state.currentUser.company} | ${roleSummary}`;
+  els.sessionUser.textContent = `${getUserDisplayName(state.currentUser)} | ${state.currentUser.company} | ${roleSummary}`;
   activateFirstAvailableTab();
 }
 
@@ -374,6 +433,7 @@ function refreshRoleSections() {
   togglePanel("judging-panel", judge);
   togglePanel("results-panel", judge);
   togglePanel("volunteer-panel", volunteer);
+  updateJudgeResultAdminControls();
   activateFirstAvailableTab();
 }
 
@@ -421,37 +481,60 @@ function activateTab(targetId) {
 function renderUsersTable() {
   if (!canAccessUserAccounts(state.currentUser)) {
     els.usersTableBody.innerHTML = "";
+    updateUsersPanelMeta([], []);
     return;
   }
 
-  const visibleUsers = getVisibleUsersForManager();
+  const allManagedUsers = getVisibleUsersForManager();
+  const visibleUsers = filterManagedUsers(allManagedUsers);
+  updateUsersPanelMeta(allManagedUsers, visibleUsers);
+
   if (!visibleUsers.length) {
-    els.usersTableBody.innerHTML = "<tr><td colspan='4'>No user accounts available.</td></tr>";
+    els.usersTableBody.innerHTML = state.userSearchTerm
+      ? "<tr><td colspan='8'>No staff accounts match the current search.</td></tr>"
+      : "<tr><td colspan='8'>No user accounts available.</td></tr>";
     return;
   }
 
   els.usersTableBody.innerHTML = visibleUsers
     .map((user) => {
-      const roles = listRoles(user).join(", ") || "No flags";
       const escapedUsername = escapeHtml(user.Username);
       const encodedUsername = encodeURIComponent(user.Username);
       const actions = [];
+      const fullName = escapeHtml(getUserDisplayName(user));
+      const email = user.email ? escapeHtml(user.email) : "<span class='table-empty'>No email</span>";
 
       if (canEditUsers(state.currentUser) && canManageRecord(state.currentUser, user)) {
-        actions.push(`<button type="button" data-action="edit" data-username="${encodedUsername}">Edit</button>`);
+        actions.push(
+          `<button type="button" class="secondary action-icon-button" data-action="edit" data-username="${encodedUsername}">Edit</button>`
+        );
       }
       if (canDeleteUsers(state.currentUser) && canManageRecord(state.currentUser, user)) {
-        actions.push(`<button type="button" data-action="delete" data-username="${encodedUsername}">Delete</button>`);
+        actions.push(
+          `<button type="button" class="danger action-icon-button" data-action="delete" data-username="${encodedUsername}">Delete</button>`
+        );
       }
 
       return `
         <tr>
-          <td>${escapedUsername}</td>
-          <td>${escapeHtml(user.company)}</td>
-          <td>${escapeHtml(roles)}</td>
+          <td>
+            <div class="user-account-cell">
+              <span class="user-avatar">${escapeHtml(getUserInitials(user))}</span>
+              <div class="user-identity">
+                <strong>${fullName}</strong>
+                <span>${escapeHtml(user.company)}</span>
+              </div>
+            </div>
+          </td>
+          <td>${email}</td>
+          <td><span class="username-chip">${escapedUsername}</span></td>
+          <td>${renderStatusBadge(user.status)}</td>
+          <td>${renderPrimaryRoleBadge(user)}</td>
+          <td>${escapeHtml(formatDateOnly(user.createdAt))}</td>
+          <td>${escapeHtml(formatRelativeTime(user.lastLoginAt))}</td>
           <td>
             <div class="inline-actions">
-              ${actions.join("") || "<span>Add only</span>"}
+              ${actions.join("") || "<span class='action-note'>Add only</span>"}
             </div>
           </td>
         </tr>
@@ -466,6 +549,11 @@ function updateUserAdminControls() {
   const allowBulkAdmin = canEditUsers(state.currentUser);
   els.exportUsersBtn.classList.toggle("hidden", !allowBulkAdmin);
   els.importUsersBtn.classList.toggle("hidden", !allowBulkAdmin);
+}
+
+function onUserSearchInput(event) {
+  state.userSearchTerm = String(event.target.value || "").trim();
+  renderUsersTable();
 }
 
 function onUsersTableClick(event) {
@@ -488,26 +576,54 @@ function onUsersTableClick(event) {
   }
 }
 
+function openNewUserEditor() {
+  clearUserForm();
+  setUserEditorOpen(true);
+}
+
+function closeUserEditor() {
+  clearUserForm();
+  setUserEditorOpen(false);
+}
+
+function onUserEditorOverlayClick(event) {
+  if (event.target === els.userEditorOverlay) {
+    closeUserEditor();
+  }
+}
+
+function setUserEditorOpen(isOpen) {
+  els.userEditorOverlay?.classList.toggle("hidden", !isOpen);
+  document.body.classList.toggle("user-editor-open", isOpen);
+}
+
 function fillUserForm(user) {
   els.editUsername.value = user.Username;
+  els.formFullName.value = getUserDisplayName(user);
+  els.formEmail.value = user.email || "";
   els.formUsername.value = user.Username;
   els.formPassword.value = "";
   els.formCompany.value = user.company;
+  els.formStatus.value = normalizeUserStatus(user.status);
   els.roleVolunteer.checked = hasRole(user, "Volunteer");
   els.roleOwner.checked = hasRole(user, "owner");
   els.roleJudge.checked = hasRole(user, "Judge");
   els.roleAdmin.checked = hasRole(user, "admin");
   els.roleSuperAdmin.checked = hasRole(user, "Super admin");
-  els.userFormTitle.textContent = `Edit User: ${user.Username}`;
+  els.userFormTitle.textContent = `Edit User: ${getUserDisplayName(user)}`;
   applyFormPermissionRules();
+  updateUserFormScope(user);
+  setUserEditorOpen(true);
   setStatus(els.userFormStatus, "");
 }
 
 function clearUserForm() {
   els.editUsername.value = "";
   els.userForm.reset();
-  els.userFormTitle.textContent = "Create User";
+  els.formStatus.value = "Active";
+  els.userFormTitle.textContent = "New User";
   applyFormPermissionRules();
+  updateUserFormScope();
   setStatus(els.userFormStatus, "");
 }
 
@@ -524,6 +640,183 @@ function applyFormPermissionRules() {
   }
 }
 
+function updateUsersPanelMeta(allManagedUsers, visibleUsers) {
+  if (els.usersSummary) {
+    const activeCount = allManagedUsers.filter((user) => normalizeUserStatus(user.status) === "Active").length;
+    const elevatedCount = allManagedUsers.filter(
+      (user) => hasRole(user, "admin") || hasRole(user, "Super admin")
+    ).length;
+    const hiddenCount = Math.max(allManagedUsers.length - visibleUsers.length, 0);
+
+    els.usersSummary.innerHTML = [
+      renderSummaryPill(visibleUsers.length, "Visible"),
+      renderSummaryPill(activeCount, "Active"),
+      renderSummaryPill(elevatedCount, "Admins"),
+      hiddenCount ? renderSummaryPill(hiddenCount, "Filtered") : "",
+    ]
+      .filter(Boolean)
+      .join("");
+  }
+
+  if (els.usersListCaption) {
+    if (!allManagedUsers.length) {
+      els.usersListCaption.textContent = "No staff accounts are currently available in your management scope.";
+    } else if (!visibleUsers.length && state.userSearchTerm) {
+      els.usersListCaption.textContent = `No staff accounts matched "${state.userSearchTerm}".`;
+    } else if (state.userSearchTerm) {
+      els.usersListCaption.textContent = `Showing ${visibleUsers.length} of ${allManagedUsers.length} staff accounts for "${state.userSearchTerm}".`;
+    } else {
+      els.usersListCaption.textContent = `Showing ${visibleUsers.length} staff account${visibleUsers.length === 1 ? "" : "s"} in your management scope.`;
+    }
+  }
+
+  updateUserFormScope();
+}
+
+function updateUserFormScope(existingUser = null) {
+  if (!els.userFormScope) {
+    return;
+  }
+
+  if (!state.currentUser) {
+    els.userFormScope.textContent = "";
+    return;
+  }
+
+  const isEditing = Boolean(existingUser || els.editUsername.value.trim());
+  if (hasRole(state.currentUser, "Super admin")) {
+    els.userFormScope.textContent = isEditing
+      ? "You can edit company assignment, status, email, and elevated access for this account."
+      : "You can create accounts across any company, including admin and super admin access.";
+    return;
+  }
+
+  if (hasRole(state.currentUser, "admin")) {
+    els.userFormScope.textContent = isEditing
+      ? `This account stays scoped to ${state.currentUser.company}. Email and status can be updated here. Elevated roles remain locked to super admins.`
+      : `New accounts will be created inside ${state.currentUser.company}. Only super admins can assign admin or super admin access.`;
+    return;
+  }
+
+  els.userFormScope.textContent = `You can add new users for ${state.currentUser.company}. Editing and deletion stay with admins and super admins.`;
+}
+
+function filterManagedUsers(users) {
+  const query = state.userSearchTerm.trim().toLowerCase();
+  if (!query) {
+    return users;
+  }
+
+  return users.filter((user) => {
+    const roles = listRoles(user).join(" ").toLowerCase();
+    return [user.fullName, user.email, user.Username, user.company, user.status, roles]
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
+}
+
+function renderSummaryPill(value, label) {
+  return `
+    <article class="summary-pill">
+      <strong>${escapeHtml(String(value))}</strong>
+      <span>${escapeHtml(label)}</span>
+    </article>
+  `;
+}
+
+function renderRoleBadges(user) {
+  const roles = listRoles(user);
+  if (!roles.length) {
+    return '<span class="role-pill muted">No flags</span>';
+  }
+
+  return roles
+    .map((role) => `<span class="role-pill ${getRoleBadgeClass(role)}">${escapeHtml(role)}</span>`)
+    .join("");
+}
+
+function getRoleBadgeClass(role) {
+  switch (String(role).toLowerCase()) {
+    case "super admin":
+      return "super";
+    case "admin":
+      return "admin";
+    case "owner":
+      return "owner";
+    case "judge":
+      return "judge";
+    case "volunteer":
+      return "volunteer";
+    default:
+      return "";
+  }
+}
+
+function getUserScopeLabel(user) {
+  if (hasRole(user, "Super admin")) {
+    return "Global access";
+  }
+  if (hasRole(user, "admin")) {
+    return "Admin account";
+  }
+  if (hasRole(user, "owner")) {
+    return "Company owner";
+  }
+  return "Staff account";
+}
+
+function getUserDisplayName(user) {
+  return user.fullName || humanizeUsername(user.Username);
+}
+
+function getUserInitials(user) {
+  const name = getUserDisplayName(user);
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (!parts.length) {
+    return "U";
+  }
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
+function humanizeUsername(username) {
+  return String(username || "")
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function renderStatusBadge(status) {
+  const normalizedStatus = normalizeUserStatus(status);
+  return `<span class="status-pill ${normalizedStatus.toLowerCase()}">${escapeHtml(normalizedStatus)}</span>`;
+}
+
+function renderPrimaryRoleBadge(user) {
+  const primaryRole = getPrimaryRole(user);
+  return `<span class="role-pill ${getRoleBadgeClass(primaryRole)}">${escapeHtml(primaryRole)}</span>`;
+}
+
+function getPrimaryRole(user) {
+  if (hasRole(user, "Super admin")) {
+    return "Super admin";
+  }
+  if (hasRole(user, "admin")) {
+    return "Admin";
+  }
+  if (hasRole(user, "owner")) {
+    return "Owner";
+  }
+  if (hasRole(user, "Judge")) {
+    return "Judge";
+  }
+  if (hasRole(user, "Volunteer")) {
+    return "Volunteer";
+  }
+  return "Staff";
+}
+
 async function onUserFormSubmit(event) {
   event.preventDefault();
   if (!canCreateUsers(state.currentUser)) {
@@ -532,18 +825,24 @@ async function onUserFormSubmit(event) {
 
   const editingUsername = els.editUsername.value.trim();
   const existingUser = editingUsername ? findUserByUsername(editingUsername) : null;
+  const isEditingExistingUser = Boolean(editingUsername);
+
+  if (isEditingExistingUser && state.storageMode === STORAGE_MODE_LOCAL && !existingUser) {
+    setStatus(els.userFormStatus, "The original user record could not be found. Refresh and try again.", true);
+    return;
+  }
 
   if (existingUser && !canManageRecord(state.currentUser, existingUser)) {
     setStatus(els.userFormStatus, "You cannot edit this user.", true);
     return;
   }
 
-  const userPayload = buildUserPayload(existingUser);
-  if (!userPayload.Username || !userPayload.company) {
-    setStatus(els.userFormStatus, "Username and company are required.", true);
+  const userPayload = buildUserPayload(existingUser, { isEditingExistingUser });
+  if (!userPayload.fullName || !userPayload.Username || !userPayload.company) {
+    setStatus(els.userFormStatus, "Full name, username, and company are required.", true);
     return;
   }
-  if (!userPayload.password && !existingUser) {
+  if (!userPayload.password && !isEditingExistingUser) {
     setStatus(els.userFormStatus, "Password is required for new users.", true);
     return;
   }
@@ -551,7 +850,7 @@ async function onUserFormSubmit(event) {
   try {
     if (state.storageMode === STORAGE_MODE_SUPABASE) {
       setStatus(els.userFormStatus, "Saving user to Supabase...");
-      await saveUserToSupabase(userPayload, editingUsername);
+      await saveUserToSupabase(userPayload, editingUsername || null);
       await refreshSessionAfterPotentialSelfEdit(editingUsername, userPayload);
       await refreshManagedUsers();
     } else {
@@ -561,22 +860,31 @@ async function onUserFormSubmit(event) {
     refreshRoleSections();
     renderUsersTable();
     clearUserForm();
+    setUserEditorOpen(false);
     setStatus(els.userFormStatus, "User saved.");
   } catch (error) {
-    setStatus(els.userFormStatus, formatSupabaseError(error, "Unable to save user."), true);
+    const saveError = formatUserSaveError(error, { isEditingExistingUser });
+    setStatus(els.userFormStatus, saveError, true);
   }
 }
 
-function buildUserPayload(existingUser) {
+function buildUserPayload(existingUser, { isEditingExistingUser = false } = {}) {
   const superAdmin = hasRole(state.currentUser, "Super admin");
   const manualPassword = els.formPassword.value;
   const password =
-    state.storageMode === STORAGE_MODE_SUPABASE ? manualPassword : manualPassword || existingUser?.password || "";
+    state.storageMode === STORAGE_MODE_SUPABASE
+      ? manualPassword
+      : manualPassword || existingUser?.password || (isEditingExistingUser ? "__preserve__" : "");
 
   const newPayload = {
+    fullName: els.formFullName.value.trim(),
+    email: els.formEmail.value.trim(),
     Username: els.formUsername.value.trim(),
     password,
     company: superAdmin ? els.formCompany.value.trim() : state.currentUser.company,
+    status: normalizeUserStatus(els.formStatus.value),
+    createdAt: existingUser?.createdAt || new Date().toISOString(),
+    lastLoginAt: existingUser?.lastLoginAt || "",
     Volunteer: els.roleVolunteer.checked ? "1" : "",
     owner: els.roleOwner.checked ? "1" : "",
     Judge: els.roleJudge.checked ? "1" : "",
@@ -594,6 +902,10 @@ function buildUserPayload(existingUser) {
 
   if (newPayload["Super admin"] === "1") {
     newPayload.admin = "1";
+  }
+
+  if (state.storageMode !== STORAGE_MODE_SUPABASE && password === "__preserve__") {
+    newPayload.password = "";
   }
 
   return newPayload;
@@ -622,7 +934,12 @@ function saveUserLocally(userPayload, editingUsername, existingUser) {
 
   if (existingUser) {
     const index = state.users.findIndex((user) => user.Username === existingUser.Username);
-    state.users[index] = userPayload;
+    state.users[index] = {
+      ...existingUser,
+      ...userPayload,
+      createdAt: existingUser.createdAt || userPayload.createdAt,
+      lastLoginAt: existingUser.lastLoginAt || userPayload.lastLoginAt,
+    };
   } else {
     state.users.push(userPayload);
   }
@@ -900,7 +1217,7 @@ async function onJudgeFormSubmit(event) {
       });
       els.judgeForm.reset();
       updateJudgeTotal();
-      await Promise.all([refreshJudgeResults(), refreshCategoryLeaders()]);
+      await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
       setStatus(els.judgeStatus, "Score submitted to Supabase.");
     } catch (error) {
       setStatus(els.judgeStatus, formatSupabaseError(error, "Submit failed."), true);
@@ -952,7 +1269,7 @@ async function onJudgeFormSubmit(event) {
     recordJudgeResult(payload);
     els.judgeForm.reset();
     updateJudgeTotal();
-    await Promise.all([refreshJudgeResults(), refreshCategoryLeaders()]);
+    await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
     setStatus(els.judgeStatus, "Score submitted. Check the linked Google Sheet.");
   } catch (error) {
     setStatus(els.judgeStatus, `Submit failed: ${error.message}`, true);
@@ -1156,9 +1473,289 @@ function renderLeaderboardRow(entry) {
   `;
 }
 
+function updateJudgeResultAdminControls() {
+  const allowed = canManageJudgeResults(state.currentUser);
+  els.judgeResultsAdminPanel?.classList.toggle("hidden", !allowed);
+
+  if (!allowed) {
+    state.adminJudgeResults = [];
+    state.selectedJudgeResultIds = new Set();
+    setStatus(els.manageResultsStatus, "");
+  }
+
+  syncJudgeResultSelectionUi();
+}
+
+async function refreshAdminJudgeResults(showStatus = false) {
+  if (!canManageJudgeResults(state.currentUser)) {
+    state.adminJudgeResults = [];
+    state.selectedJudgeResultIds = new Set();
+    renderAdminJudgeResults();
+    return;
+  }
+
+  try {
+    if (state.storageMode === STORAGE_MODE_SUPABASE) {
+      const result = await callSupabaseRpc(SUPABASE_FUNCTIONS.listAllJudgeResults, {
+        actor_username: state.currentUser.Username,
+        actor_password: state.sessionSecret,
+      });
+      state.adminJudgeResults = asArray(result).map(normalizeJudgeResult);
+    } else {
+      state.adminJudgeResults = getStoredJudgeResultsForAdmin();
+    }
+
+    pruneSelectedJudgeResultIds();
+    renderAdminJudgeResults();
+    if (showStatus) {
+      setStatus(els.manageResultsStatus, "Score submissions refreshed.");
+    } else {
+      setStatus(els.manageResultsStatus, "");
+    }
+  } catch (error) {
+    state.adminJudgeResults = [];
+    state.selectedJudgeResultIds = new Set();
+    renderAdminJudgeResults();
+    setStatus(els.manageResultsStatus, formatSupabaseError(error, "Unable to load score submissions."), true);
+  }
+}
+
+function renderAdminJudgeResults() {
+  if (!els.adminResultsBody) {
+    return;
+  }
+
+  if (!canManageJudgeResults(state.currentUser)) {
+    els.adminResultsBody.innerHTML = "";
+    syncJudgeResultSelectionUi();
+    return;
+  }
+
+  if (!state.adminJudgeResults.length) {
+    els.adminResultsBody.innerHTML =
+      "<tr><td colspan='8'>No judging submissions are available to manage yet.</td></tr>";
+    syncJudgeResultSelectionUi();
+    return;
+  }
+
+  els.adminResultsBody.innerHTML = state.adminJudgeResults
+    .map((result) => {
+      const selected = state.selectedJudgeResultIds.has(String(result.id)) ? "checked" : "";
+      const comments = result.comments ? escapeHtml(result.comments) : "None";
+
+      return `
+        <tr>
+          <td>
+            <label class="results-checkbox">
+              <input type="checkbox" data-result-id="${escapeHtml(String(result.id))}" ${selected} />
+              <span class="hidden">Select result ${escapeHtml(String(result.id))}</span>
+            </label>
+          </td>
+          <td>${escapeHtml(formatDateTime(result.submittedAt))}</td>
+          <td>${escapeHtml(result.judgeUsername)}</td>
+          <td>${escapeHtml(result.judgeCompany)}</td>
+          <td>${escapeHtml(result.entrantId)}</td>
+          <td>${escapeHtml(result.category)}</td>
+          <td>${escapeHtml(String(result.totalScore))}</td>
+          <td>${comments}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  syncJudgeResultSelectionUi();
+}
+
+function onAdminResultsSelectionChange(event) {
+  const checkbox = event.target.closest("input[data-result-id]");
+  if (!checkbox) {
+    return;
+  }
+
+  const resultId = String(checkbox.dataset.resultId || "");
+  if (!resultId) {
+    return;
+  }
+
+  if (checkbox.checked) {
+    state.selectedJudgeResultIds.add(resultId);
+  } else {
+    state.selectedJudgeResultIds.delete(resultId);
+  }
+
+  syncJudgeResultSelectionUi();
+}
+
+function onToggleAllJudgeResults(event) {
+  if (!canManageJudgeResults(state.currentUser)) {
+    return;
+  }
+
+  const shouldSelectAll = Boolean(event.target.checked);
+  state.selectedJudgeResultIds = shouldSelectAll
+    ? new Set(state.adminJudgeResults.map((result) => String(result.id)))
+    : new Set();
+
+  renderAdminJudgeResults();
+}
+
+function pruneSelectedJudgeResultIds() {
+  const validIds = new Set(state.adminJudgeResults.map((result) => String(result.id)));
+  state.selectedJudgeResultIds = new Set(
+    Array.from(state.selectedJudgeResultIds).filter((resultId) => validIds.has(resultId))
+  );
+}
+
+function syncJudgeResultSelectionUi() {
+  const total = state.adminJudgeResults.length;
+  const selectedCount = state.selectedJudgeResultIds.size;
+
+  if (els.deleteSelectedResultsBtn) {
+    els.deleteSelectedResultsBtn.disabled = !selectedCount;
+    els.deleteSelectedResultsBtn.textContent =
+      selectedCount > 0 ? `Delete Selected (${selectedCount})` : "Delete Selected";
+  }
+
+  if (els.purgeResultsBtn) {
+    els.purgeResultsBtn.disabled = !total;
+  }
+
+  if (els.selectAllResults) {
+    const allSelected = total > 0 && selectedCount === total;
+    els.selectAllResults.checked = allSelected;
+    els.selectAllResults.indeterminate = selectedCount > 0 && selectedCount < total;
+    els.selectAllResults.disabled = !total;
+  }
+}
+
+async function deleteSelectedJudgeResults() {
+  if (!canManageJudgeResults(state.currentUser)) {
+    return;
+  }
+
+  const selectedIds = Array.from(state.selectedJudgeResultIds);
+  if (!selectedIds.length) {
+    setStatus(els.manageResultsStatus, "Select at least one score submission to delete.", true);
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete ${selectedIds.length} selected judging submission${selectedIds.length === 1 ? "" : "s"}?`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setJudgeResultAdminActionState(true);
+
+    if (state.storageMode === STORAGE_MODE_SUPABASE) {
+      const result = await callSupabaseRpc(SUPABASE_FUNCTIONS.deleteJudgeResults, {
+        actor_username: state.currentUser.Username,
+        actor_password: state.sessionSecret,
+        target_ids: selectedIds.map((resultId) => Number(resultId)),
+        purge_all: false,
+      });
+
+      state.selectedJudgeResultIds = new Set();
+      await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
+      setStatus(
+        els.manageResultsStatus,
+        `Deleted ${Number(result?.deleted_count ?? selectedIds.length)} selected score submission${
+          selectedIds.length === 1 ? "" : "s"
+        }.`
+      );
+      return;
+    }
+
+    deleteJudgeResultsLocally(selectedIds);
+    state.selectedJudgeResultIds = new Set();
+    await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
+    setStatus(
+      els.manageResultsStatus,
+      `Deleted ${selectedIds.length} selected score submission${selectedIds.length === 1 ? "" : "s"}.`
+    );
+  } catch (error) {
+    setStatus(els.manageResultsStatus, formatSupabaseError(error, "Unable to delete selected results."), true);
+  } finally {
+    setJudgeResultAdminActionState(false);
+  }
+}
+
+async function purgeAllJudgeResults() {
+  if (!canManageJudgeResults(state.currentUser)) {
+    return;
+  }
+
+  if (!state.adminJudgeResults.length) {
+    setStatus(els.manageResultsStatus, "There are no score submissions to purge.", true);
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Purge all judging submissions? This will permanently clear every saved score and recalculate the leaderboard."
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setJudgeResultAdminActionState(true);
+
+    if (state.storageMode === STORAGE_MODE_SUPABASE) {
+      const result = await callSupabaseRpc(SUPABASE_FUNCTIONS.deleteJudgeResults, {
+        actor_username: state.currentUser.Username,
+        actor_password: state.sessionSecret,
+        target_ids: [],
+        purge_all: true,
+      });
+
+      state.selectedJudgeResultIds = new Set();
+      await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
+      setStatus(
+        els.manageResultsStatus,
+        `Purged ${Number(result?.deleted_count ?? 0)} judging submission${
+          Number(result?.deleted_count ?? 0) === 1 ? "" : "s"
+        }.`
+      );
+      return;
+    }
+
+    saveJudgeResultsToStorage([]);
+    state.selectedJudgeResultIds = new Set();
+    await Promise.all([refreshJudgeResults(), refreshCategoryLeaders(), refreshAdminJudgeResults()]);
+    setStatus(els.manageResultsStatus, "Purged all judging submissions.");
+  } catch (error) {
+    setStatus(els.manageResultsStatus, formatSupabaseError(error, "Unable to purge results."), true);
+  } finally {
+    setJudgeResultAdminActionState(false);
+  }
+}
+
+function setJudgeResultAdminActionState(isBusy) {
+  els.refreshAdminResultsBtn && (els.refreshAdminResultsBtn.disabled = isBusy);
+  els.selectAllResults && (els.selectAllResults.disabled = isBusy || !state.adminJudgeResults.length);
+  els.deleteSelectedResultsBtn && (els.deleteSelectedResultsBtn.disabled = isBusy || !state.selectedJudgeResultIds.size);
+  els.purgeResultsBtn && (els.purgeResultsBtn.disabled = isBusy || !state.adminJudgeResults.length);
+
+  if (!els.deleteSelectedResultsBtn || !els.purgeResultsBtn) {
+    return;
+  }
+
+  if (isBusy) {
+    els.deleteSelectedResultsBtn.textContent = "Working...";
+    els.purgeResultsBtn.textContent = "Working...";
+    return;
+  }
+
+  syncJudgeResultSelectionUi();
+  els.purgeResultsBtn.textContent = "Purge All Results";
+}
+
 function recordJudgeResult(payload) {
   const storedResults = readJudgeResultsFromStorage();
   storedResults.unshift({
+    id: createLocalJudgeResultId(),
     submittedAt: payload.timestamp,
     judgeUsername: payload.judgeUsername,
     judgeCompany: payload.judgeCompany,
@@ -1195,8 +1792,19 @@ function getStoredJudgeResultsForCurrentUser() {
     .slice(0, MAX_JUDGE_RESULTS);
 }
 
-function normalizeJudgeResult(raw) {
+function getStoredJudgeResultsForAdmin() {
+  return readJudgeResultsFromStorage().sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+}
+
+function deleteJudgeResultsLocally(targetIds) {
+  const targetSet = new Set(targetIds.map(String));
+  const filtered = readJudgeResultsFromStorage().filter((result) => !targetSet.has(String(result.id)));
+  saveJudgeResultsToStorage(filtered);
+}
+
+function normalizeJudgeResult(raw, sourceIndex = 0) {
   return {
+    id: String(raw?.id ?? raw?.resultId ?? raw?.result_id ?? buildLegacyJudgeResultId(raw, sourceIndex)),
     submittedAt: String(raw?.submittedAt ?? raw?.submitted_at ?? raw?.timestamp ?? new Date().toISOString()),
     judgeUsername: String(raw?.judgeUsername ?? raw?.judge_username ?? ""),
     judgeCompany: String(raw?.judgeCompany ?? raw?.judge_company ?? ""),
@@ -1205,6 +1813,18 @@ function normalizeJudgeResult(raw) {
     totalScore: Number(raw?.totalScore ?? raw?.total_score ?? 0),
     comments: String(raw?.comments ?? "").trim(),
   };
+}
+
+function createLocalJudgeResultId() {
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildLegacyJudgeResultId(raw, sourceIndex = 0) {
+  const submittedAt = String(raw?.submittedAt ?? raw?.submitted_at ?? raw?.timestamp ?? "");
+  const judgeUsername = String(raw?.judgeUsername ?? raw?.judge_username ?? "");
+  const entrantId = String(raw?.entrantId ?? raw?.entrant_id ?? "");
+  const category = String(raw?.category ?? "");
+  return `legacy-${submittedAt}-${judgeUsername}-${entrantId}-${category}-${sourceIndex}`;
 }
 
 function normalizeCategoryLeader(raw) {
@@ -1346,9 +1966,12 @@ async function saveUserToSupabase(userPayload, originalUsername) {
     actor_username: state.currentUser.Username,
     actor_password: state.sessionSecret,
     original_username: originalUsername || null,
+    target_full_name: userPayload.fullName,
+    target_email: userPayload.email || null,
     target_username: userPayload.Username,
     target_password: userPayload.password || null,
     target_company: userPayload.company,
+    target_status: userPayload.status,
     target_volunteer: hasRole(userPayload, "Volunteer"),
     target_owner: hasRole(userPayload, "owner"),
     target_judge: hasRole(userPayload, "Judge"),
@@ -1408,6 +2031,21 @@ function authenticateLocal(username, password) {
   return user;
 }
 
+function markLocalUserLogin(username) {
+  const index = state.users.findIndex((entry) => entry.Username.toLowerCase() === username.toLowerCase());
+  if (index < 0) {
+    return null;
+  }
+
+  const updatedUser = {
+    ...state.users[index],
+    lastLoginAt: new Date().toISOString(),
+  };
+  state.users[index] = updatedUser;
+  saveUsersToStorage();
+  return updatedUser;
+}
+
 function restoreLocalSessionUser(username) {
   return findUserByUsername(username) || null;
 }
@@ -1446,9 +2084,14 @@ function normalizeUsers(input, { requirePassword = true } = {}) {
 
 function normalizeUser(raw) {
   const user = {
+    fullName: String(raw?.fullName ?? raw?.full_name ?? "").trim(),
+    email: String(raw?.email ?? "").trim(),
     Username: String(raw?.Username ?? raw?.username ?? "").trim(),
     password: String(raw?.password ?? ""),
     company: String(raw?.company ?? "").trim(),
+    status: normalizeUserStatus(raw?.status),
+    createdAt: String(raw?.createdAt ?? raw?.created_at ?? new Date().toISOString()),
+    lastLoginAt: String(raw?.lastLoginAt ?? raw?.last_login_at ?? ""),
     Volunteer: normalizeRoleValue(raw?.Volunteer ?? raw?.volunteer),
     owner: normalizeRoleValue(raw?.owner),
     Judge: normalizeRoleValue(raw?.Judge ?? raw?.judge),
@@ -1459,6 +2102,9 @@ function normalizeUser(raw) {
   if (user["Super admin"] === "1") {
     user.admin = "1";
   }
+  if (!user.fullName) {
+    user.fullName = humanizeUsername(user.Username);
+  }
   return user;
 }
 
@@ -1467,6 +2113,18 @@ function normalizeRoleValue(value) {
     return "1";
   }
   return String(value ?? "").trim() === "1" ? "1" : "";
+}
+
+function normalizeUserStatus(value) {
+  const normalized = String(value ?? "Active").trim().toLowerCase();
+  const allowedStatuses = {
+    active: "Active",
+    inactive: "Inactive",
+    pending: "Pending",
+    suspended: "Suspended",
+    banned: "Banned",
+  };
+  return allowedStatuses[normalized] || "Active";
 }
 
 function enforceAtLeastOneSuperAdmin() {
@@ -1613,12 +2271,32 @@ function formatAuthError(error) {
   return formatSupabaseError(error, "Unable to sign in.");
 }
 
+function formatUserSaveError(error, { isEditingExistingUser = false } = {}) {
+  if (
+    isEditingExistingUser &&
+    /Password is required for new users/i.test(String(error?.message || ""))
+  ) {
+    return "Supabase user management needs the latest email/profile fix. Run docs/supabase-user-management-upgrade.sql in Supabase SQL Editor.";
+  }
+
+  return formatSupabaseError(error, "Unable to save user.");
+}
+
 function formatSupabaseError(error, fallbackMessage) {
   if (!error) {
     return fallbackMessage;
   }
 
   const message = String(error.message || fallbackMessage || "Request failed.");
+  if (/portal_upsert_user|full_name|last_login_at|target_full_name|target_status/i.test(message)) {
+    return "User management needs the latest profile patch. Run docs/supabase-user-management-upgrade.sql in Supabase SQL Editor.";
+  }
+  if (/portal_list_all_judge_results|portal_delete_judge_results/i.test(message)) {
+    return "Judge-results management needs the latest Supabase admin patch. Run docs/supabase-judge-results-admin-patch.sql in Supabase SQL Editor.";
+  }
+  if (/portal_list_category_leaders/i.test(message)) {
+    return "The Results page needs the latest Supabase SQL patch. Run docs/supabase-results-page-patch.sql in Supabase SQL Editor.";
+  }
   if (/schema cache|Could not find the function|does not exist/i.test(message)) {
     return "Supabase is configured, but the portal SQL setup has not been applied yet.";
   }
@@ -1657,6 +2335,10 @@ function canDeleteUsers(user) {
 
 function canAccessJudgeDesk(user) {
   return hasRole(user, "Judge") || hasRole(user, "admin") || hasRole(user, "Super admin");
+}
+
+function canManageJudgeResults(user) {
+  return hasRole(user, "Super admin") || (hasRole(user, "admin") && hasRole(user, "Judge"));
 }
 
 function canAccessVolunteerTools(user) {
@@ -1710,6 +2392,48 @@ function setStatus(node, message, isError = false) {
   node.textContent = message;
   node.classList.toggle("error", Boolean(isError && message));
   node.classList.remove("warn");
+}
+
+function formatDateOnly(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatRelativeTime(value) {
+  if (!value) {
+    return "Never";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  const diffMs = date.getTime() - Date.now();
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const month = 30 * day;
+
+  if (Math.abs(diffMs) < hour) {
+    return rtf.format(Math.round(diffMs / minute), "minute");
+  }
+  if (Math.abs(diffMs) < day) {
+    return rtf.format(Math.round(diffMs / hour), "hour");
+  }
+  if (Math.abs(diffMs) < month) {
+    return rtf.format(Math.round(diffMs / day), "day");
+  }
+  return rtf.format(Math.round(diffMs / month), "month");
 }
 
 function formatDateTime(value) {

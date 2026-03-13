@@ -3,17 +3,33 @@ create extension if not exists pgcrypto with schema extensions;
 create table if not exists public.portal_users (
   id uuid primary key default extensions.gen_random_uuid(),
   username text not null unique,
+  full_name text not null default '',
+  email text not null default '',
   password_hash text not null,
   company text not null,
+  status text not null default 'Active',
   volunteer boolean not null default false,
   owner boolean not null default false,
   judge boolean not null default false,
   admin boolean not null default false,
   super_admin boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
+  last_login_at timestamptz,
   updated_at timestamptz not null default timezone('utc', now()),
   constraint portal_users_super_admin_implies_admin check (not super_admin or admin)
 );
+
+alter table public.portal_users
+add column if not exists full_name text not null default '';
+
+alter table public.portal_users
+add column if not exists email text not null default '';
+
+alter table public.portal_users
+add column if not exists status text not null default 'Active';
+
+alter table public.portal_users
+add column if not exists last_login_at timestamptz;
 
 create table if not exists public.judge_scores (
   id bigint generated always as identity primary key,
@@ -101,15 +117,22 @@ as $$
   select jsonb_build_object('ok', true, 'service', 'ghmx_portal');
 $$;
 
+drop function if exists public.portal_login(text, text);
+
 create or replace function public.portal_login(p_username text, p_password text)
 returns table (
   username text,
+  full_name text,
+  email text,
   company text,
+  status text,
   volunteer boolean,
   owner boolean,
   judge boolean,
   admin boolean,
-  super_admin boolean
+  super_admin boolean,
+  created_at timestamptz,
+  last_login_at timestamptz
 )
 language plpgsql
 security definer
@@ -120,27 +143,44 @@ declare
 begin
   actor := public.portal_require_actor(p_username, p_password);
 
+  update public.portal_users
+  set last_login_at = timezone('utc', now())
+  where id = actor.id
+  returning * into actor;
+
   return query
   select
     actor.username,
+    actor.full_name,
+    actor.email,
     actor.company,
+    actor.status,
     actor.volunteer,
     actor.owner,
     actor.judge,
     actor.admin,
-    actor.super_admin;
+    actor.super_admin,
+    actor.created_at,
+    actor.last_login_at;
 end;
 $$;
+
+drop function if exists public.portal_list_users(text, text);
 
 create or replace function public.portal_list_users(actor_username text, actor_password text)
 returns table (
   username text,
+  full_name text,
+  email text,
   company text,
+  status text,
   volunteer boolean,
   owner boolean,
   judge boolean,
   admin boolean,
-  super_admin boolean
+  super_admin boolean,
+  created_at timestamptz,
+  last_login_at timestamptz
 )
 language plpgsql
 security definer
@@ -158,25 +198,47 @@ begin
   return query
   select
     u.username,
+    u.full_name,
+    u.email,
     u.company,
+    u.status,
     u.volunteer,
     u.owner,
     u.judge,
     u.admin,
-    u.super_admin
+    u.super_admin,
+    u.created_at,
+    u.last_login_at
   from public.portal_users as u
   where actor.super_admin or (u.company = actor.company and not u.super_admin)
-  order by u.username;
+  order by coalesce(nullif(u.full_name, ''), u.username), u.username;
 end;
 $$;
+
+drop function if exists public.portal_upsert_user(
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+  boolean
+);
 
 create or replace function public.portal_upsert_user(
   actor_username text,
   actor_password text,
   original_username text default null,
+  target_full_name text default null,
+  target_email text default null,
   target_username text default null,
   target_password text default null,
   target_company text default null,
+  target_status text default 'Active',
   target_volunteer boolean default false,
   target_owner boolean default false,
   target_judge boolean default false,
@@ -185,12 +247,17 @@ create or replace function public.portal_upsert_user(
 )
 returns table (
   username text,
+  full_name text,
+  email text,
   company text,
+  status text,
   volunteer boolean,
   owner boolean,
   judge boolean,
   admin boolean,
-  super_admin boolean
+  super_admin boolean,
+  created_at timestamptz,
+  last_login_at timestamptz
 )
 language plpgsql
 security definer
@@ -201,7 +268,17 @@ declare
   existing public.portal_users;
   lookup_username text := lower(trim(coalesce(original_username, target_username, '')));
   normalized_target_username text := lower(trim(coalesce(target_username, '')));
+  resolved_full_name text := trim(coalesce(target_full_name, ''));
+  resolved_email text := lower(trim(coalesce(target_email, '')));
   resolved_company text := trim(coalesce(target_company, ''));
+  resolved_status text := case lower(trim(coalesce(target_status, 'active')))
+    when 'active' then 'Active'
+    when 'inactive' then 'Inactive'
+    when 'pending' then 'Pending'
+    when 'suspended' then 'Suspended'
+    when 'banned' then 'Banned'
+    else 'Active'
+  end;
   resolved_admin boolean := coalesce(target_admin, false);
   resolved_super_admin boolean := coalesce(target_super_admin, false);
 begin
@@ -213,6 +290,10 @@ begin
 
   if normalized_target_username = '' then
     raise exception 'Username is required';
+  end if;
+
+  if resolved_full_name = '' then
+    resolved_full_name := normalized_target_username;
   end if;
 
   if not actor.super_admin then
@@ -232,7 +313,7 @@ begin
   from public.portal_users as pu
   where pu.username = lookup_username;
 
-  if existing is not null then
+  if existing.id is not null then
     if actor.owner and not actor.admin and not actor.super_admin then
       raise exception 'Owners can add new users only';
     end if;
@@ -258,7 +339,10 @@ begin
     update public.portal_users
     set
       username = normalized_target_username,
+      full_name = resolved_full_name,
+      email = resolved_email,
       company = resolved_company,
+      status = resolved_status,
       volunteer = coalesce(target_volunteer, false),
       owner = coalesce(target_owner, false),
       judge = coalesce(target_judge, false),
@@ -276,8 +360,11 @@ begin
 
     insert into public.portal_users (
       username,
+      full_name,
+      email,
       password_hash,
       company,
+      status,
       volunteer,
       owner,
       judge,
@@ -286,8 +373,11 @@ begin
     )
     values (
       normalized_target_username,
+      resolved_full_name,
+      resolved_email,
       extensions.crypt(target_password, extensions.gen_salt('bf')),
       resolved_company,
+      resolved_status,
       coalesce(target_volunteer, false),
       coalesce(target_owner, false),
       coalesce(target_judge, false),
@@ -299,12 +389,17 @@ begin
   return query
   select
     u.username,
+    u.full_name,
+    u.email,
     u.company,
+    u.status,
     u.volunteer,
     u.owner,
     u.judge,
     u.admin,
-    u.super_admin
+    u.super_admin,
+    u.created_at,
+    u.last_login_at
   from public.portal_users as u
   where u.username = normalized_target_username;
 end;
@@ -539,20 +634,112 @@ begin
 end;
 $$;
 
+create or replace function public.portal_list_all_judge_results(actor_username text, actor_password text)
+returns table (
+  id bigint,
+  submitted_at timestamptz,
+  judge_username text,
+  judge_company text,
+  entrant_id text,
+  category text,
+  total_score integer,
+  comments text
+)
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  actor public.portal_users;
+begin
+  actor := public.portal_require_actor(actor_username, actor_password);
+
+  if not (actor.super_admin or (actor.admin and actor.judge)) then
+    raise exception 'Only admin judges and super admins can manage judge results';
+  end if;
+
+  return query
+  select
+    j.id,
+    j.submitted_at,
+    j.judge_username,
+    j.judge_company,
+    j.entrant_id,
+    j.category,
+    j.total_score,
+    j.comments
+  from public.judge_scores as j
+  order by j.submitted_at desc, j.id desc;
+end;
+$$;
+
+create or replace function public.portal_delete_judge_results(
+  actor_username text,
+  actor_password text,
+  target_ids bigint[] default null,
+  purge_all boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  actor public.portal_users;
+  deleted_count integer := 0;
+begin
+  actor := public.portal_require_actor(actor_username, actor_password);
+
+  if not (actor.super_admin or (actor.admin and actor.judge)) then
+    raise exception 'Only admin judges and super admins can manage judge results';
+  end if;
+
+  if coalesce(purge_all, false) then
+    delete from public.judge_scores
+    where id is not null;
+    get diagnostics deleted_count = row_count;
+
+    return jsonb_build_object(
+      'deleted_count', deleted_count,
+      'scope', 'all'
+    );
+  end if;
+
+  if coalesce(array_length(target_ids, 1), 0) = 0 then
+    raise exception 'Select at least one score submission to delete';
+  end if;
+
+  delete from public.judge_scores
+  where id = any(target_ids);
+
+  get diagnostics deleted_count = row_count;
+
+  return jsonb_build_object(
+    'deleted_count', deleted_count,
+    'scope', 'selected'
+  );
+end;
+$$;
+
 grant usage on schema public to anon, authenticated;
 grant execute on function public.portal_ping() to anon, authenticated;
 grant execute on function public.portal_login(text, text) to anon, authenticated;
 grant execute on function public.portal_list_users(text, text) to anon, authenticated;
-grant execute on function public.portal_upsert_user(text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean) to anon, authenticated;
+grant execute on function public.portal_upsert_user(text, text, text, text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean) to anon, authenticated;
 grant execute on function public.portal_delete_user(text, text, text) to anon, authenticated;
 grant execute on function public.portal_submit_judge_score(text, text, text, text, integer, integer, integer, integer, text) to anon, authenticated;
 grant execute on function public.portal_list_judge_results(text, text) to anon, authenticated;
 grant execute on function public.portal_list_category_leaders(text, text) to anon, authenticated;
+grant execute on function public.portal_list_all_judge_results(text, text) to anon, authenticated;
+grant execute on function public.portal_delete_judge_results(text, text, bigint[], boolean) to anon, authenticated;
 
 insert into public.portal_users (
   username,
+  full_name,
+  email,
   password_hash,
   company,
+  status,
   volunteer,
   owner,
   judge,
@@ -560,14 +747,17 @@ insert into public.portal_users (
   super_admin
 )
 values
-  ('ghmx.superadmin', extensions.crypt('V1sualB@sic#1', extensions.gen_salt('bf')), 'GHMX Convention', true, true, true, true, true),
-  ('vendor.admin', extensions.crypt('VendorAdmin!2026', extensions.gen_salt('bf')), 'Example Vendor Co', false, true, false, true, false),
-  ('judge.demo', extensions.crypt('JudgeDemo!2026', extensions.gen_salt('bf')), 'Example Vendor Co', false, false, true, false, false),
-  ('volunteer.demo', extensions.crypt('Volunteer!2026', extensions.gen_salt('bf')), 'GHMX Convention', true, false, false, false, false)
+  ('ghmx.superadmin', 'GHMX Super Admin', 'admin@ghmx.com.au', extensions.crypt('V1sualB@sic#1', extensions.gen_salt('bf')), 'GHMX Convention', 'Active', true, true, true, true, true),
+  ('vendor.admin', 'Vendor Admin', 'vendor.admin@example.com', extensions.crypt('VendorAdmin!2026', extensions.gen_salt('bf')), 'Example Vendor Co', 'Active', false, true, false, true, false),
+  ('judge.demo', 'Judge Demo', 'judge.demo@example.com', extensions.crypt('JudgeDemo!2026', extensions.gen_salt('bf')), 'Example Vendor Co', 'Active', false, false, true, false, false),
+  ('volunteer.demo', 'Volunteer Demo', 'volunteer.demo@example.com', extensions.crypt('Volunteer!2026', extensions.gen_salt('bf')), 'GHMX Convention', 'Active', true, false, false, false, false)
 on conflict (username) do update
 set
+  full_name = excluded.full_name,
+  email = excluded.email,
   password_hash = excluded.password_hash,
   company = excluded.company,
+  status = excluded.status,
   volunteer = excluded.volunteer,
   owner = excluded.owner,
   judge = excluded.judge,

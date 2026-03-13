@@ -81,54 +81,50 @@
 
         <section id="users-panel" class="card panel hidden">
           <div class="panel-head">
-            <h2>User Account Control</h2>
+            <div>
+              <h2>User Account Control</h2>
+              <p class="hint users-head-copy">
+                Manage the staff accounts you are allowed to oversee, with live activity visibility and role-based limits applied automatically.
+              </p>
+            </div>
             <div class="inline-actions">
-              <button id="export-users-btn" type="button">Export JSON</button>
-              <button id="import-users-btn" type="button">Import JSON</button>
+              <button id="open-user-editor-btn" type="button">New User</button>
+              <button id="export-users-btn" type="button" class="secondary">Export JSON</button>
+              <button id="import-users-btn" type="button" class="secondary">Import JSON</button>
               <input id="import-users-input" type="file" accept="application/json" class="hidden" />
             </div>
           </div>
           <p id="users-storage-hint" class="hint">
             User changes are stored in browser local storage for GitHub Pages compatibility.
           </p>
-          <div class="split">
-            <div class="table-wrap">
-              <table>
+          <div class="users-toolbar">
+            <label class="users-search" for="user-search">
+              <span>Search Staff</span>
+              <input id="user-search" type="search" placeholder="Filter by name, email, username, status, or role" />
+            </label>
+            <div id="users-summary" class="users-summary" aria-live="polite"></div>
+          </div>
+          <div class="users-directory">
+            <div id="users-list-caption" class="users-list-caption"></div>
+            <div class="table-wrap users-table-wrap">
+              <table class="users-table">
                 <thead>
                   <tr>
+                    <th>Full Name</th>
+                    <th>Email</th>
                     <th>Username</th>
-                    <th>Company</th>
-                    <th>Roles</th>
+                    <th>Status</th>
+                    <th>Role</th>
+                    <th>Joined Date</th>
+                    <th>Last Active</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="users-table-body"></tbody>
               </table>
             </div>
-            <form id="user-form">
-              <h3 id="user-form-title">Create User</h3>
-              <input type="hidden" id="edit-username" />
-              <label for="form-username">Username</label>
-              <input id="form-username" required />
-              <label for="form-password">Password</label>
-              <input id="form-password" type="password" />
-              <label for="form-company">Company</label>
-              <input id="form-company" required />
-              <fieldset>
-                <legend>Role Flags (use 1 for enabled)</legend>
-                <label><input id="role-volunteer" type="checkbox" /> Volunteer</label>
-                <label><input id="role-owner" type="checkbox" /> Owner</label>
-                <label><input id="role-judge" type="checkbox" /> Judge</label>
-                <label><input id="role-admin" type="checkbox" /> Admin</label>
-                <label><input id="role-super-admin" type="checkbox" /> Super admin</label>
-              </fieldset>
-              <div class="inline-actions">
-                <button type="submit">Save User</button>
-                <button type="button" id="reset-user-form-btn">Clear</button>
-              </div>
-              <p id="user-form-status" class="status"></p>
-            </form>
           </div>
+
         </section>
 
         <section id="judging-panel" class="card panel hidden">
@@ -216,6 +212,45 @@
           </div>
           <p id="results-status" class="status"></p>
           <div id="category-results-grid" class="category-results-grid"></div>
+
+          <section id="judge-results-admin-panel" class="results-admin-panel hidden">
+            <div class="panel-head">
+              <div>
+                <h3>Score Management</h3>
+                <p class="hint">
+                  Admin judges and super admins can remove selected score submissions or purge the judging history.
+                </p>
+              </div>
+              <div class="inline-actions">
+                <button id="refresh-admin-results-btn" type="button" class="secondary">Refresh Submissions</button>
+                <button id="delete-selected-results-btn" type="button" class="secondary" disabled>Delete Selected</button>
+                <button id="purge-results-btn" type="button" class="danger">Purge All Results</button>
+              </div>
+            </div>
+            <p id="manage-results-status" class="status"></p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>
+                      <label class="results-checkbox">
+                        <input id="select-all-results" type="checkbox" />
+                        <span>Select</span>
+                      </label>
+                    </th>
+                    <th>Submitted</th>
+                    <th>Judge</th>
+                    <th>Company</th>
+                    <th>Entrant ID</th>
+                    <th>Category</th>
+                    <th>Total</th>
+                    <th>Comments</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-results-body"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <section id="volunteer-panel" class="card panel hidden">
@@ -238,6 +273,74 @@
           <iframe id="bumpin-map-frame" title="Bump-in map"></iframe>
           <a id="bumpin-map-link" class="button-link" target="_blank" rel="noreferrer">Open Bump-in Map</a>
         </section>
+
+        <div id="user-editor-overlay" class="user-editor-overlay hidden">
+          <aside class="user-editor-drawer" role="dialog" aria-modal="true" aria-labelledby="user-form-title">
+            <div class="user-form-head">
+              <div>
+                <p class="eyebrow user-editor-kicker">User Editor</p>
+                <h3 id="user-form-title">New User</h3>
+                <p id="user-form-scope" class="hint user-form-scope"></p>
+              </div>
+              <button type="button" id="close-user-editor-btn" class="icon-button" aria-label="Close user editor">
+                X
+              </button>
+            </div>
+            <form id="user-form" class="user-form-card">
+              <input type="hidden" id="edit-username" />
+              <div class="user-form-grid">
+                <div class="field">
+                  <label for="form-full-name">Full Name</label>
+                  <input id="form-full-name" placeholder="Jane Smith" required />
+                </div>
+                <div class="field">
+                  <label for="form-email">Email Address</label>
+                  <input id="form-email" type="email" placeholder="jane.smith@example.com" />
+                </div>
+              </div>
+              <div class="user-form-grid">
+                <div class="field">
+                  <label for="form-username">Username</label>
+                  <input id="form-username" required />
+                </div>
+                <div class="field">
+                  <label for="form-company">Company</label>
+                  <input id="form-company" required />
+                </div>
+              </div>
+              <div class="user-form-grid">
+                <div class="field">
+                  <label for="form-status">Status</label>
+                  <select id="form-status">
+                    <option>Active</option>
+                    <option>Inactive</option>
+                    <option>Pending</option>
+                    <option>Suspended</option>
+                    <option>Banned</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="form-password">Password</label>
+                  <input id="form-password" type="password" />
+                </div>
+              </div>
+              <p class="hint field-note">Leave password blank when editing to keep the current password unchanged.</p>
+              <fieldset>
+                <legend>Access Roles</legend>
+                <label><input id="role-volunteer" type="checkbox" /> Volunteer</label>
+                <label><input id="role-owner" type="checkbox" /> Owner</label>
+                <label><input id="role-judge" type="checkbox" /> Judge</label>
+                <label><input id="role-admin" type="checkbox" /> Admin</label>
+                <label><input id="role-super-admin" type="checkbox" /> Super admin</label>
+              </fieldset>
+              <div class="inline-actions">
+                <button type="submit">Save User</button>
+                <button type="button" id="reset-user-form-btn" class="secondary">Clear</button>
+              </div>
+              <p id="user-form-status" class="status"></p>
+            </form>
+          </aside>
+        </div>
       </section>
     </main>
 

@@ -39,6 +39,255 @@ const SUPABASE_FUNCTIONS = {
   deleteJudgeResults: "portal_delete_judge_results",
 };
 
+function createDefaultBumpInParkingConfig() {
+  return {
+    title: "GHMX Final Hall Bump-in Flow",
+    overview:
+      "Closer to the final allocated floor layout, with routed fly-throughs that follow the hall aisles and avoid the stone pillars.",
+    driveZones: [
+      { id: "entry-ramp", label: "Event Entry Lane", x: -55, z: 24, width: 34, depth: 8, rotation: -48 },
+      { id: "west-link", label: "West Link", x: -38, z: 14, width: 24, depth: 8, rotation: -22 },
+      { id: "main-west", label: "Main West Aisle", x: -10, z: 9, width: 54, depth: 9, rotation: 0 },
+      { id: "main-east", label: "Main East Aisle", x: 38, z: 10, width: 44, depth: 9, rotation: 0 },
+      { id: "north-spine", label: "North Spine", x: 23, z: -7, width: 8, depth: 30, rotation: 0 },
+      { id: "north-east-link", label: "North East Link", x: 50, z: -8, width: 30, depth: 8, rotation: 0 },
+      { id: "east-hall", label: "East Hall Lane", x: 60, z: 18, width: 8, depth: 26, rotation: 0 },
+      { id: "south-spine", label: "South Spine", x: 23, z: 35, width: 8, depth: 48, rotation: 0 },
+      { id: "south-west", label: "South West Lane", x: -1, z: 48, width: 40, depth: 8, rotation: 0 },
+      { id: "south-east", label: "South East Lane", x: 48, z: 46, width: 32, depth: 8, rotation: 0 },
+    ],
+    walkZones: [
+      { id: "ramp-up", label: "Ramp Up", x: -47, z: -2, width: 22, depth: 8, rotation: -22 },
+      { id: "guest-strip", label: "Guest / Access Strip", x: -10, z: -5, width: 8, depth: 18, rotation: 0 },
+      { id: "food-seating", label: "Food Seating", x: -11, z: -34, width: 30, depth: 16, rotation: 0 },
+      { id: "stage-front", label: "Stage Front Walk", x: 7, z: -1, width: 18, depth: 10, rotation: 0 },
+      { id: "artist-alley-walk", label: "Artist Alley Walk", x: 48, z: 21, width: 20, depth: 8, rotation: 0 },
+      { id: "south-seating", label: "South Seating", x: 0, z: 50, width: 20, depth: 10, rotation: 0 },
+    ],
+    pillars: [
+      { id: "p01", x: -26, z: -36 },
+      { id: "p02", x: -17, z: -36 },
+      { id: "p03", x: -1, z: -36 },
+      { id: "p04", x: 9, z: -36 },
+      { id: "p05", x: 48, z: -39 },
+      { id: "p06", x: 66, z: -38 },
+      { id: "p07", x: -29, z: -15 },
+      { id: "p08", x: -18, z: -15 },
+      { id: "p09", x: 20, z: -14 },
+      { id: "p10", x: 41, z: -15 },
+      { id: "p11", x: 54, z: -7 },
+      { id: "p12", x: -36, z: 8 },
+      { id: "p13", x: -19, z: 10 },
+      { id: "p14", x: -1, z: 10 },
+      { id: "p15", x: 8, z: 10 },
+      { id: "p16", x: 18, z: 10 },
+      { id: "p17", x: 29, z: 10 },
+      { id: "p18", x: 40, z: 10 },
+      { id: "p19", x: 52, z: 11 },
+      { id: "p20", x: 62, z: 11 },
+      { id: "p21", x: -57, z: 21 },
+      { id: "p22", x: -21, z: 22 },
+      { id: "p23", x: 0, z: 22 },
+      { id: "p24", x: 16, z: 22 },
+      { id: "p25", x: 37, z: 21 },
+      { id: "p26", x: 50, z: 22 },
+      { id: "p27", x: 67, z: 24 },
+      { id: "p28", x: -8, z: 52 },
+      { id: "p29", x: 9, z: 52 },
+      { id: "p30", x: 30, z: 52 },
+      { id: "p31", x: 49, z: 52 },
+    ],
+    landmarks: [
+      { id: "event-entry", label: "Event Entry", x: -68, z: 31, width: 10, depth: 9, height: 2.8, color: "#1d7a48" },
+      { id: "bbx-display", label: "BBX Display", x: -31, z: -16, width: 18, depth: 14, height: 2.9, color: "#ff6c2f" },
+      { id: "competition", label: "Scale Model Competition", x: -53, z: 7, width: 16, depth: 16, height: 2.8, color: "#91c83b" },
+      { id: "registration", label: "Registration", x: -49, z: 18, width: 16, depth: 8, height: 2.2, color: "#143652" },
+      { id: "stage", label: "Stage Central", x: 7, z: -10, width: 18, depth: 10, height: 3.2, color: "#22d5df" },
+      { id: "dnd", label: "Dungeons & Dragons", x: 24, z: -7, width: 10, depth: 10, height: 2.7, color: "#f123d8" },
+      { id: "card", label: "Card Tournaments", x: 42, z: -11, width: 16, depth: 18, height: 2.8, color: "#91c83b" },
+      { id: "magic", label: "Magic", x: 56, z: -4, width: 14, depth: 16, height: 2.8, color: "#91c83b" },
+      { id: "gundam", label: "Gundam Workshop", x: 13, z: 9, width: 16, depth: 10, height: 2.5, color: "#ffe247" },
+      { id: "miniatures", label: "Miniature Workshop", x: 27, z: 9, width: 14, depth: 10, height: 2.5, color: "#ffe247" },
+      { id: "esport", label: "Esport", x: 45, z: 10, width: 16, depth: 10, height: 2.5, color: "#ffe247" },
+      { id: "artist", label: "Artist Alley", x: 49, z: 21, width: 18, depth: 8, height: 2.4, color: "#ff6c2f" },
+      { id: "rc-zone", label: "RC Zone", x: 68, z: 6, width: 10, depth: 22, height: 2.8, color: "#ffe247" },
+      { id: "pc-zone", label: "PC Zone", x: 68, z: 20, width: 12, depth: 18, height: 2.8, color: "#ffe247" },
+      { id: "medieval", label: "Medieval Zone", x: 68, z: 30, width: 12, depth: 16, height: 2.8, color: "#ffe247" },
+      { id: "cosplay-studio", label: "Cosplay Studio", x: 30, z: 42, width: 18, depth: 10, height: 2.6, color: "#ffe247" },
+      { id: "cosplay-stage", label: "Cosplay Stage", x: 50, z: 42, width: 16, depth: 10, height: 2.8, color: "#22d5df" },
+      { id: "lounge", label: "Exhibition Lounge", x: 9, z: 51, width: 14, depth: 8, height: 2.3, color: "#22d5df" },
+    ],
+    spots: [
+      {
+        id: "W1",
+        label: "West Queue",
+        area: "Registration to main aisle handoff",
+        x: -28,
+        z: 11,
+        width: 11,
+        depth: 8,
+        status: "available",
+        vehicle: "Van / ute",
+        note: "Good first stop after the event entry ramp.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+        ],
+      },
+      {
+        id: "C1",
+        label: "Central West Hold",
+        area: "Open bay near booths 402-405",
+        x: -8,
+        z: 8,
+        width: 12,
+        depth: 8,
+        status: "available",
+        vehicle: "Van / ute",
+        note: "Best central stop before splitting north or east.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+          { x: -18, z: 10 },
+        ],
+      },
+      {
+        id: "C2",
+        label: "Stage Front Hold",
+        area: "Stage central access pocket",
+        x: 7,
+        z: 4,
+        width: 10,
+        depth: 8,
+        status: "reserved",
+        vehicle: "Vendor van",
+        assignedTo: "Stage / AV",
+        note: "Keep for stage freight and timed AV unloads.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+          { x: -18, z: 10 },
+          { x: 0, z: 9 },
+        ],
+      },
+      {
+        id: "N1",
+        label: "North Card Hold",
+        area: "Card tournaments turn pocket",
+        x: 34,
+        z: -11,
+        width: 11,
+        depth: 8,
+        status: "occupied",
+        vehicle: "Small truck",
+        assignedTo: "TCG vendor unload",
+        note: "Currently active. Uses the north spine to turn into the card area.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+          { x: -18, z: 10 },
+          { x: 5, z: 9 },
+          { x: 22, z: 8 },
+          { x: 22, z: -8 },
+        ],
+      },
+      {
+        id: "N2",
+        label: "North East Hold",
+        area: "Magic / RC crossover aisle",
+        x: 58,
+        z: 10,
+        width: 10,
+        depth: 8,
+        status: "available",
+        vehicle: "Van / ute",
+        note: "Useful for RC zone and east-side stalls.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+          { x: -18, z: 10 },
+          { x: 5, z: 9 },
+          { x: 28, z: 10 },
+          { x: 49, z: 10 },
+        ],
+      },
+      {
+        id: "E1",
+        label: "East Hall Hold",
+        area: "Artist alley and PC zone approach",
+        x: 60,
+        z: 22,
+        width: 9,
+        depth: 8,
+        status: "blocked",
+        vehicle: "No parking",
+        note: "Keep clear for the east-side cross traffic and pillar pinch point.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+          { x: -18, z: 10 },
+          { x: 5, z: 9 },
+          { x: 28, z: 10 },
+          { x: 49, z: 10 },
+          { x: 58, z: 17 },
+        ],
+      },
+      {
+        id: "S1",
+        label: "South Spine Hold",
+        area: "Center spine before cosplay",
+        x: 23,
+        z: 33,
+        width: 9,
+        depth: 14,
+        rotation: 90,
+        status: "reserved",
+        vehicle: "Long van / trailer",
+        assignedTo: "Cosplay / lounge freight",
+        note: "Use this as the south-bound holding point before the lower hall.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+          { x: -18, z: 10 },
+          { x: 5, z: 9 },
+          { x: 22, z: 10 },
+          { x: 22, z: 32 },
+        ],
+      },
+      {
+        id: "S2",
+        label: "Cosplay Hold",
+        area: "South east aisle near cosplay",
+        x: 49,
+        z: 46,
+        width: 12,
+        depth: 8,
+        status: "available",
+        vehicle: "Van / ute",
+        note: "Final drop point for cosplay and lounge-side vendors.",
+        route: [
+          { x: -67, z: 31 },
+          { x: -58, z: 24 },
+          { x: -43, z: 15 },
+          { x: -18, z: 10 },
+          { x: 5, z: 9 },
+          { x: 22, z: 10 },
+          { x: 22, z: 32 },
+          { x: 22, z: 46 },
+          { x: 45, z: 46 },
+        ],
+      },
+    ],
+  };
+}
+
 const DEFAULT_CONFIG = {
   event: {
     title: "GHMX Convention Operations Portal",
@@ -57,6 +306,7 @@ const DEFAULT_CONFIG = {
   maps: {
     venueMapUrl: "assets/maps/venue-map-placeholder.svg",
     bumpInMapUrl: "assets/maps/bump-in-map-placeholder.svg",
+    bumpInParking: createDefaultBumpInParkingConfig(),
   },
   supabase: {
     enabled: false,
@@ -77,6 +327,9 @@ const state = {
   adminJudgeResults: [],
   selectedJudgeResultIds: new Set(),
   userSearchTerm: "",
+  bumpInSpotFilter: "available",
+  bumpInSelectedSpotId: "",
+  bumpInViewMode: "layout",
 };
 
 const els = {
@@ -146,9 +399,26 @@ const els = {
   volunteerIframe: document.getElementById("volunteer-iframe"),
   venueMapFrame: document.getElementById("venue-map-frame"),
   venueMapLink: document.getElementById("venue-map-link"),
-  bumpinMapFrame: document.getElementById("bumpin-map-frame"),
+  bumpinMapStage: document.getElementById("bumpin-map-stage"),
+  bumpinNavControls: document.getElementById("bumpin-nav-controls"),
+  bumpinStageEyebrow: document.getElementById("bumpin-stage-eyebrow"),
+  bumpinStageTitle: document.getElementById("bumpin-stage-title"),
+  bumpinStageDescription: document.getElementById("bumpin-stage-description"),
   bumpinMapLink: document.getElementById("bumpin-map-link"),
+  bumpinSceneStatus: document.getElementById("bumpin-scene-status"),
+  bumpinNextSpotBtn: document.getElementById("bumpin-next-spot-btn"),
+  bumpinViewToggle: document.getElementById("bumpin-view-toggle"),
+  bumpinViewButtons: Array.from(document.querySelectorAll("[data-bumpin-mode]")),
+  bumpinSpotFilter: document.getElementById("bumpin-spot-filter"),
+  bumpinSpotsList: document.getElementById("bumpin-spots-list"),
+  bumpinSummaryGrid: document.getElementById("bumpin-summary-grid"),
+  bumpinSelectedTitle: document.getElementById("bumpin-selected-title"),
+  bumpinSelectedMeta: document.getElementById("bumpin-selected-meta"),
+  bumpinSelectedNote: document.getElementById("bumpin-selected-note"),
 };
+
+let bumpInMapController = null;
+let bumpInIntroPending = true;
 
 init().catch((error) => {
   console.error(error);
@@ -162,8 +432,8 @@ async function init() {
   await Promise.all([loadConfig(), loadSeedUsers()]);
   renderOverview();
   configureVolunteerSection();
-  configureMap("venue");
-  configureMap("bumpin");
+  configureVenueMap();
+  await configureBumpInSection();
   updateJudgeFallbackLink();
   updateJudgeTotal();
   await configureStorageMode();
@@ -206,6 +476,11 @@ function bindEvents() {
   els.exportUsersBtn.addEventListener("click", exportUsersJson);
   els.importUsersBtn.addEventListener("click", () => els.importUsersInput.click());
   els.importUsersInput.addEventListener("change", onImportUsers);
+  els.bumpinSpotFilter?.addEventListener("change", onBumpInSpotFilterChange);
+  els.bumpinSpotsList?.addEventListener("click", onBumpInSpotListClick);
+  els.bumpinNextSpotBtn?.addEventListener("click", onBumpInNextSpotClick);
+  els.bumpinViewToggle?.addEventListener("click", onBumpInViewToggleClick);
+  els.bumpinNavControls?.addEventListener("click", onBumpInNavControlsClick);
   els.judgeForm.addEventListener("submit", onJudgeFormSubmit);
   els.refreshResultsBtn?.addEventListener("click", () => {
     void refreshJudgeResults(true);
@@ -243,7 +518,17 @@ async function loadConfig() {
       ...data,
       event: { ...DEFAULT_CONFIG.event, ...data.event },
       google: { ...DEFAULT_CONFIG.google, ...data.google },
-      maps: { ...DEFAULT_CONFIG.maps, ...data.maps },
+      maps: {
+        ...DEFAULT_CONFIG.maps,
+        ...data.maps,
+        bumpInParking: {
+          ...DEFAULT_CONFIG.maps.bumpInParking,
+          ...(data.maps?.bumpInParking || {}),
+          spots: Array.isArray(data.maps?.bumpInParking?.spots)
+            ? data.maps.bumpInParking.spots
+            : DEFAULT_CONFIG.maps.bumpInParking.spots,
+        },
+      },
       supabase: { ...DEFAULT_CONFIG.supabase, ...data.supabase },
     };
   } catch (error) {
@@ -392,6 +677,7 @@ function showLogin() {
   els.loginView.classList.remove("hidden");
   els.appView.classList.add("hidden");
   els.sessionChip.classList.add("hidden");
+  updateBumpInMapVisibility(false);
   setUserEditorOpen(false);
   clearUserForm();
   setStatus(els.loginStatus, "");
@@ -476,6 +762,7 @@ function activateTab(targetId) {
 
   els.tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.target === targetId));
   els.panels.forEach((panel) => panel.classList.toggle("active", panel.id === targetId && !panel.classList.contains("hidden")));
+  updateBumpInMapVisibility(targetId === "bumpin-panel");
 }
 
 function renderUsersTable() {
@@ -1153,14 +1440,476 @@ function configureVolunteerSection() {
   }
 }
 
-function configureMap(kind) {
-  const isVenue = kind === "venue";
-  const mapUrl = isVenue ? state.config.maps.venueMapUrl : state.config.maps.bumpInMapUrl;
-  const frame = isVenue ? els.venueMapFrame : els.bumpinMapFrame;
-  const link = isVenue ? els.venueMapLink : els.bumpinMapLink;
+function configureVenueMap() {
+  els.venueMapFrame.src = state.config.maps.venueMapUrl;
+  els.venueMapLink.href = state.config.maps.venueMapUrl;
+}
 
-  frame.src = mapUrl;
-  link.href = mapUrl;
+async function configureBumpInSection() {
+  const mapUrl = state.config.maps.bumpInMapUrl;
+
+  if (!mapUrl) {
+    els.bumpinMapLink.textContent = "2D reference map URL is not configured";
+    els.bumpinMapLink.removeAttribute("href");
+  } else {
+    els.bumpinMapLink.textContent = "Open 2D Reference Map";
+    els.bumpinMapLink.href = mapUrl;
+  }
+
+  const parking = getBumpInParkingConfig();
+  if (els.bumpinSpotFilter) {
+    els.bumpinSpotFilter.value = state.bumpInSpotFilter;
+  }
+  els.bumpinViewButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.bumpinMode === state.bumpInViewMode);
+  });
+  syncBumpInStageOverlay();
+
+  syncBumpInSelection(parking.spots);
+  renderBumpInPanel(parking.spots);
+
+  if (!els.bumpinMapStage) {
+    return;
+  }
+
+  if (bumpInMapController) {
+    bumpInMapController.destroy();
+    bumpInMapController = null;
+  }
+
+  if (!parking.spots.length) {
+    setStatus(els.bumpinSceneStatus, "No bump-in parking bays are configured yet.", true);
+    return;
+  }
+
+  try {
+    const { createBumpInMap } = await import("./bumpin-map.js");
+    bumpInMapController = createBumpInMap({
+      mount: els.bumpinMapStage,
+      mode: state.bumpInViewMode,
+      parking,
+      onSpotSelect: (spotId) => {
+        selectBumpInSpot(spotId);
+      },
+    });
+    bumpInMapController.setSelectedSpot(state.bumpInSelectedSpotId);
+    setStatus(
+      els.bumpinSceneStatus,
+      state.bumpInViewMode === "navigator"
+        ? "Navigator ready. Left-drag orbits, right-drag moves, scroll zooms, and clicking a bay follows its route through the 3D graph."
+        : "3D layout ready. Left-drag orbits, right-drag moves, scroll zooms, and clicking a bay flies through the hall model."
+    );
+    updateBumpInMapVisibility(getActivePanelId() === "bumpin-panel");
+  } catch (error) {
+    console.error("Failed to initialize bump-in map:", error);
+    setStatus(
+      els.bumpinSceneStatus,
+      "3D map could not be loaded in this browser. The parking list and 2D reference map are still available.",
+      true
+    );
+  }
+}
+
+function syncBumpInStageOverlay() {
+  const isNavigator = state.bumpInViewMode === "navigator";
+
+  if (els.bumpinMapStage) {
+    els.bumpinMapStage.dataset.bumpinMode = isNavigator ? "navigator" : "layout";
+    els.bumpinMapStage.setAttribute(
+      "aria-label",
+      isNavigator ? "FSN-style 3D bump-in navigator" : "3D bump-in hall layout"
+    );
+  }
+
+  if (els.bumpinStageEyebrow) {
+    els.bumpinStageEyebrow.textContent = isNavigator ? "FSN Ops View" : "3D Hall View";
+  }
+
+  if (els.bumpinStageTitle) {
+    els.bumpinStageTitle.textContent = isNavigator ? "Bump-in Navigator" : "Bump-in Layout";
+  }
+
+  if (els.bumpinStageDescription) {
+    els.bumpinStageDescription.textContent = isNavigator
+      ? "Left-drag to orbit, right-drag to move, scroll to zoom, and click a marked bay to follow its route through the Jurassic-style navigation graph."
+      : "Left-drag to orbit, right-drag to move, scroll to zoom, and click a marked bay to focus it. The clean hall view shows the building shell, drive lanes, walk zones, pillars, and current unload holds.";
+  }
+}
+
+function getBumpInParkingConfig() {
+  const fallback = DEFAULT_CONFIG.maps.bumpInParking;
+  const source = state.config.maps?.bumpInParking || fallback;
+  return {
+    title: String(source.title || fallback.title).trim(),
+    overview: String(source.overview || fallback.overview).trim(),
+    driveZones: Array.isArray(source.driveZones) ? source.driveZones.map(normalizeBumpInZone) : [],
+    walkZones: Array.isArray(source.walkZones) ? source.walkZones.map(normalizeBumpInZone) : [],
+    pillars: Array.isArray(source.pillars) ? source.pillars.map(normalizeBumpInPillar) : [],
+    landmarks: Array.isArray(source.landmarks) ? source.landmarks.map(normalizeBumpInLandmark) : [],
+    spots: Array.isArray(source.spots) ? source.spots.map(normalizeBumpInSpot) : [],
+  };
+}
+
+function normalizeBumpInSpot(spot) {
+  const dock = Math.max(1, Number.parseInt(spot?.dock, 10) || 1);
+  const slot = Math.max(1, Number.parseInt(spot?.slot, 10) || 1);
+  const status = normalizeBumpInSpotStatus(spot?.status);
+  const fallbackId = `P${String(slot).padStart(2, "0")}`;
+  const fallbackLabel = `Parking Bay ${String(slot).padStart(2, "0")}`;
+  const hasPosition = Number.isFinite(Number(spot?.x)) && Number.isFinite(Number(spot?.z));
+  const x = hasPosition ? Number(spot.x) : (dock - 2) * 24;
+  const z = hasPosition ? Number(spot.z) : slot * 12 - 12;
+
+  return {
+    id: String(spot?.id || fallbackId).trim().toUpperCase(),
+    label: String(spot?.label || fallbackLabel).trim(),
+    area: spot?.area ? String(spot.area).trim() : "",
+    dock,
+    slot,
+    status,
+    x,
+    z,
+    width: Math.max(6, Number(spot?.width) || 12),
+    depth: Math.max(6, Number(spot?.depth) || 9),
+    rotation: normalizeBumpInRotation(spot?.rotation),
+    route: Array.isArray(spot?.route) ? spot.route.map(normalizeBumpInRoutePoint) : [],
+    vehicle: String(spot?.vehicle || "Standard vendor vehicle").trim(),
+    assignedTo: spot?.assignedTo ? String(spot.assignedTo).trim() : "",
+    note: String(spot?.note || "").trim(),
+  };
+}
+
+function normalizeBumpInZone(zone) {
+  return {
+    id: String(zone?.id || createBumpInShapeId("zone", zone)).trim(),
+    label: zone?.label ? String(zone.label).trim() : "",
+    x: Number(zone?.x) || 0,
+    z: Number(zone?.z) || 0,
+    width: Math.max(4, Number(zone?.width) || 10),
+    depth: Math.max(4, Number(zone?.depth) || 10),
+    rotation: normalizeBumpInRotation(zone?.rotation),
+  };
+}
+
+function normalizeBumpInLandmark(landmark) {
+  return {
+    id: String(landmark?.id || createBumpInShapeId("landmark", landmark)).trim(),
+    label: landmark?.label ? String(landmark.label).trim() : "",
+    x: Number(landmark?.x) || 0,
+    z: Number(landmark?.z) || 0,
+    width: Math.max(4, Number(landmark?.width) || 10),
+    depth: Math.max(4, Number(landmark?.depth) || 10),
+    height: Math.max(1.5, Number(landmark?.height) || 2.6),
+    rotation: normalizeBumpInRotation(landmark?.rotation),
+    color: landmark?.color ? String(landmark.color).trim() : "#223245",
+  };
+}
+
+function normalizeBumpInPillar(pillar) {
+  return {
+    id: String(pillar?.id || createBumpInShapeId("pillar", pillar)).trim(),
+    x: Number(pillar?.x) || 0,
+    z: Number(pillar?.z) || 0,
+    radius: Math.max(0.5, Number(pillar?.radius) || 0.8),
+    height: Math.max(1.8, Number(pillar?.height) || 3.2),
+  };
+}
+
+function normalizeBumpInRoutePoint(point) {
+  return {
+    x: Number(point?.x) || 0,
+    z: Number(point?.z) || 0,
+    y: Number.isFinite(Number(point?.y)) ? Number(point.y) : 11,
+  };
+}
+
+function normalizeBumpInSpotStatus(value) {
+  const normalized = String(value || "available").trim().toLowerCase();
+  const allowed = {
+    available: "available",
+    reserved: "reserved",
+    occupied: "occupied",
+    blocked: "blocked",
+  };
+  return allowed[normalized] || "available";
+}
+
+function normalizeBumpInRotation(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.abs(numericValue) > Math.PI * 2 ? (numericValue * Math.PI) / 180 : numericValue;
+}
+
+function createBumpInShapeId(prefix, shape) {
+  const base =
+    shape?.label ||
+    `${prefix}-${Number(shape?.x) || 0}-${Number(shape?.z) || 0}-${Number(shape?.width) || 0}-${Number(shape?.depth) || 0}`;
+  return `${prefix}-${String(base)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")}`;
+}
+
+function getBumpInFilteredSpots(spots) {
+  switch (state.bumpInSpotFilter) {
+    case "available":
+      return spots.filter((spot) => spot.status === "available");
+    case "reserved":
+      return spots.filter((spot) => spot.status === "reserved" || spot.status === "occupied");
+    case "blocked":
+      return spots.filter((spot) => spot.status === "blocked");
+    default:
+      return spots;
+  }
+}
+
+function syncBumpInSelection(spots) {
+  if (!spots.length) {
+    state.bumpInSelectedSpotId = "";
+    return;
+  }
+
+  const filtered = getBumpInFilteredSpots(spots);
+  const hasSelectedSpot = spots.some((spot) => spot.id === state.bumpInSelectedSpotId);
+  const selectedVisible = filtered.some((spot) => spot.id === state.bumpInSelectedSpotId);
+
+  if (!hasSelectedSpot) {
+    state.bumpInSelectedSpotId = filtered[0]?.id || spots[0].id;
+    return;
+  }
+
+  if (filtered.length && !selectedVisible) {
+    state.bumpInSelectedSpotId = filtered[0].id;
+  }
+}
+
+function renderBumpInPanel(spots = getBumpInParkingConfig().spots) {
+  renderBumpInSummary(spots);
+
+  const filtered = getBumpInFilteredSpots(spots);
+  if (!filtered.length) {
+    els.bumpinSpotsList.innerHTML =
+      '<p class="bumpin-empty-state">No parking bays match the current filter.</p>';
+  } else {
+    els.bumpinSpotsList.innerHTML = filtered
+      .map((spot) => {
+        const activeClass = spot.id === state.bumpInSelectedSpotId ? " active" : "";
+        const detailLine = getBumpInSpotMeta(spot);
+        const noteLine = spot.assignedTo
+          ? `${spot.assignedTo} | ${spot.vehicle}`
+          : spot.vehicle;
+
+        return `
+          <button type="button" class="bumpin-spot-card${activeClass}" data-spot-id="${escapeHtml(spot.id)}">
+            <span class="bumpin-spot-card-top">
+              <span class="bumpin-spot-copy">
+                <strong>${escapeHtml(spot.label)}</strong>
+                <span class="bumpin-spot-subtitle">${escapeHtml(spot.area || "Marked parking zone")}</span>
+              </span>
+              <span class="bumpin-spot-badge ${spot.status}">${escapeHtml(formatBumpInSpotStatus(spot.status))}</span>
+            </span>
+            <span class="bumpin-spot-meta">${escapeHtml(detailLine)}</span>
+            <span class="bumpin-spot-note">${escapeHtml(noteLine)}</span>
+          </button>
+        `;
+      })
+      .join("");
+  }
+
+  renderBumpInSelectedSpot(spots);
+  bumpInMapController?.setSelectedSpot(state.bumpInSelectedSpotId);
+}
+
+function renderBumpInSummary(spots) {
+  const counts = spots.reduce(
+    (summary, spot) => {
+      summary[spot.status] += 1;
+      return summary;
+    },
+    {
+      available: 0,
+      reserved: 0,
+      occupied: 0,
+      blocked: 0,
+    }
+  );
+
+  els.bumpinSummaryGrid.innerHTML = [
+    renderBumpInSummaryPill(counts.available, "Available", "available"),
+    renderBumpInSummaryPill(counts.reserved, "Reserved", "reserved"),
+    renderBumpInSummaryPill(counts.occupied, "Occupied", "occupied"),
+    renderBumpInSummaryPill(counts.blocked, "Blocked", "blocked"),
+  ].join("");
+}
+
+function renderBumpInSummaryPill(value, label, modifier) {
+  return `
+    <article class="bumpin-summary-pill ${modifier}">
+      <strong>${escapeHtml(String(value))}</strong>
+      <span>${escapeHtml(label)}</span>
+    </article>
+  `;
+}
+
+function renderBumpInSelectedSpot(spots) {
+  const selectedSpot = spots.find((spot) => spot.id === state.bumpInSelectedSpotId) || spots[0];
+  if (!selectedSpot) {
+    els.bumpinSelectedTitle.textContent = "Choose a parking bay";
+    els.bumpinSelectedMeta.textContent = "The selected bay details will appear here.";
+    els.bumpinSelectedNote.textContent = "Use the map or the list to jump the camera to an unload position.";
+    return;
+  }
+
+  const detailLine = `${getBumpInSpotMeta(selectedSpot)} | ${selectedSpot.vehicle}`;
+  const noteLine = selectedSpot.assignedTo
+    ? `Assigned to ${selectedSpot.assignedTo}. ${selectedSpot.note || "Ready for arrival."}`
+    : selectedSpot.note || "Ready to allocate to the next arriving vendor.";
+
+  els.bumpinSelectedTitle.textContent = selectedSpot.label;
+  els.bumpinSelectedMeta.textContent = detailLine;
+  els.bumpinSelectedNote.textContent = noteLine;
+}
+
+function onBumpInSpotFilterChange(event) {
+  state.bumpInSpotFilter = event.target.value || "all";
+  const parking = getBumpInParkingConfig();
+  syncBumpInSelection(parking.spots);
+  renderBumpInPanel(parking.spots);
+}
+
+function onBumpInSpotListClick(event) {
+  const button = event.target.closest("[data-spot-id]");
+  if (!button) {
+    return;
+  }
+
+  selectBumpInSpot(button.dataset.spotId);
+}
+
+function onBumpInNextSpotClick() {
+  const availableSpots = getBumpInParkingConfig().spots.filter((spot) => spot.status === "available");
+  if (!availableSpots.length) {
+    setStatus(els.bumpinSceneStatus, "No parking bays are currently marked as available.", true);
+    return;
+  }
+
+  const currentIndex = availableSpots.findIndex((spot) => spot.id === state.bumpInSelectedSpotId);
+  const nextSpot = availableSpots[currentIndex >= 0 ? (currentIndex + 1) % availableSpots.length : 0];
+  selectBumpInSpot(nextSpot.id);
+}
+
+function onBumpInViewToggleClick(event) {
+  const button = event.target.closest("[data-bumpin-mode]");
+  if (!button) {
+    return;
+  }
+
+  const nextMode = button.dataset.bumpinMode === "navigator" ? "navigator" : "layout";
+  if (nextMode === state.bumpInViewMode) {
+    return;
+  }
+
+  state.bumpInViewMode = nextMode;
+  bumpInIntroPending = true;
+  void configureBumpInSection();
+}
+
+function onBumpInNavControlsClick(event) {
+  const button = event.target.closest("[data-bumpin-nav]");
+  if (!button || !bumpInMapController) {
+    return;
+  }
+
+  const action = String(button.dataset.bumpinNav || "").trim();
+  const handled =
+    action === "up" ? bumpInMapController.nudgeView(0, -8) :
+    action === "down" ? bumpInMapController.nudgeView(0, 8) :
+    action === "left" ? bumpInMapController.nudgeView(-8, 0) :
+    action === "right" ? bumpInMapController.nudgeView(8, 0) :
+    action === "rotate-left" ? bumpInMapController.orbitBy(Math.PI / 10) :
+    action === "rotate-right" ? bumpInMapController.orbitBy(-Math.PI / 10) :
+    action === "zoom-in" ? bumpInMapController.zoomBy(-0.18) :
+    action === "zoom-out" ? bumpInMapController.zoomBy(0.18) :
+    action === "reset" ? bumpInMapController.resetView() :
+    false;
+
+  if (!handled) {
+    return;
+  }
+
+  const messages = {
+    up: "Moved camera up the hall.",
+    down: "Moved camera down the hall.",
+    left: "Moved camera left across the hall.",
+    right: "Moved camera right across the hall.",
+    "rotate-left": "Rotated the map left.",
+    "rotate-right": "Rotated the map right.",
+    "zoom-in": "Zoomed in on the hall.",
+    "zoom-out": "Zoomed out from the hall.",
+    reset: "Reset the map view.",
+  };
+
+  setStatus(els.bumpinSceneStatus, messages[action] || "Updated the map view.");
+}
+
+function selectBumpInSpot(spotId) {
+  const parking = getBumpInParkingConfig();
+  const selectedSpot = parking.spots.find((spot) => spot.id === spotId);
+  if (!selectedSpot) {
+    return;
+  }
+
+  state.bumpInSelectedSpotId = selectedSpot.id;
+  renderBumpInPanel(parking.spots);
+
+  if (bumpInMapController?.focusSpot(selectedSpot.id)) {
+    setStatus(els.bumpinSceneStatus, `Flying camera to ${selectedSpot.label}.`);
+  }
+}
+
+function updateBumpInMapVisibility(isVisible) {
+  if (!bumpInMapController) {
+    return;
+  }
+
+  bumpInMapController.setVisible(isVisible);
+  if (!isVisible || !bumpInIntroPending || !state.bumpInSelectedSpotId) {
+    return;
+  }
+
+  bumpInIntroPending = false;
+  requestAnimationFrame(() => {
+    const selectedSpot = getBumpInParkingConfig().spots.find((spot) => spot.id === state.bumpInSelectedSpotId);
+    if (!selectedSpot) {
+      return;
+    }
+
+    if (bumpInMapController?.focusSpot(selectedSpot.id)) {
+      setStatus(els.bumpinSceneStatus, `Flying camera to ${selectedSpot.label}.`);
+    }
+  });
+}
+
+function getActivePanelId() {
+  return (
+    els.panels.find((panel) => panel.classList.contains("active") && !panel.classList.contains("hidden"))?.id || ""
+  );
+}
+
+function formatBumpInSpotStatus(status) {
+  return String(status).replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function getBumpInSpotMeta(spot) {
+  const parts = [spot.area || "Marked parking zone", formatBumpInSpotStatus(spot.status)];
+  if (Number.isFinite(spot.width) && Number.isFinite(spot.depth)) {
+    parts.push(`Footprint ${formatCompactNumber(spot.width)} x ${formatCompactNumber(spot.depth)}`);
+  }
+  return parts.join(" | ");
 }
 
 function updateJudgeTotal() {
@@ -1942,6 +2691,19 @@ function formatAverageScore(value) {
   }
 
   return rounded.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formatCompactNumber(value) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+
+  const rounded = Math.round(value * 10) / 10;
+  if (Number.isInteger(rounded)) {
+    return String(rounded);
+  }
+
+  return rounded.toFixed(1).replace(/0$/, "").replace(/\.$/, "");
 }
 
 async function refreshManagedUsers() {

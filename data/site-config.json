@@ -14,7 +14,542 @@
   },
   "maps": {
     "venueMapUrl": "https://sgtdicks.github.io/GhMX/map.html",
-    "bumpInMapUrl": "assets/maps/bump-in-map-placeholder.svg"
+    "bumpInMapUrl": "assets/maps/bump-in-map-placeholder.svg",
+    "bumpInParking": {
+      "title": "GHMX Final Hall Bump-in Flow",
+      "overview": "Closer to the final allocated floor layout, with routed fly-throughs that follow the hall aisles and avoid the stone pillars.",
+      "driveZones": [
+        {
+          "id": "entry-ramp",
+          "label": "Event Entry Lane",
+          "x": -55,
+          "z": 24,
+          "width": 34,
+          "depth": 8,
+          "rotation": -48
+        },
+        {
+          "id": "west-link",
+          "label": "West Link",
+          "x": -38,
+          "z": 14,
+          "width": 24,
+          "depth": 8,
+          "rotation": -22
+        },
+        {
+          "id": "main-west",
+          "label": "Main West Aisle",
+          "x": -10,
+          "z": 9,
+          "width": 54,
+          "depth": 9,
+          "rotation": 0
+        },
+        {
+          "id": "main-east",
+          "label": "Main East Aisle",
+          "x": 38,
+          "z": 10,
+          "width": 44,
+          "depth": 9,
+          "rotation": 0
+        },
+        {
+          "id": "north-spine",
+          "label": "North Spine",
+          "x": 23,
+          "z": -7,
+          "width": 8,
+          "depth": 30,
+          "rotation": 0
+        },
+        {
+          "id": "north-east-link",
+          "label": "North East Link",
+          "x": 50,
+          "z": -8,
+          "width": 30,
+          "depth": 8,
+          "rotation": 0
+        },
+        {
+          "id": "east-hall",
+          "label": "East Hall Lane",
+          "x": 60,
+          "z": 18,
+          "width": 8,
+          "depth": 26,
+          "rotation": 0
+        },
+        {
+          "id": "south-spine",
+          "label": "South Spine",
+          "x": 23,
+          "z": 35,
+          "width": 8,
+          "depth": 48,
+          "rotation": 0
+        },
+        {
+          "id": "south-west",
+          "label": "South West Lane",
+          "x": -1,
+          "z": 48,
+          "width": 40,
+          "depth": 8,
+          "rotation": 0
+        },
+        {
+          "id": "south-east",
+          "label": "South East Lane",
+          "x": 48,
+          "z": 46,
+          "width": 32,
+          "depth": 8,
+          "rotation": 0
+        }
+      ],
+      "walkZones": [
+        {
+          "id": "ramp-up",
+          "label": "Ramp Up",
+          "x": -47,
+          "z": -2,
+          "width": 22,
+          "depth": 8,
+          "rotation": -22
+        },
+        {
+          "id": "guest-strip",
+          "label": "Guest / Access Strip",
+          "x": -10,
+          "z": -5,
+          "width": 8,
+          "depth": 18,
+          "rotation": 0
+        },
+        {
+          "id": "food-seating",
+          "label": "Food Seating",
+          "x": -11,
+          "z": -34,
+          "width": 30,
+          "depth": 16,
+          "rotation": 0
+        },
+        {
+          "id": "stage-front",
+          "label": "Stage Front Walk",
+          "x": 7,
+          "z": -1,
+          "width": 18,
+          "depth": 10,
+          "rotation": 0
+        },
+        {
+          "id": "artist-alley-walk",
+          "label": "Artist Alley Walk",
+          "x": 48,
+          "z": 21,
+          "width": 20,
+          "depth": 8,
+          "rotation": 0
+        },
+        {
+          "id": "south-seating",
+          "label": "South Seating",
+          "x": 0,
+          "z": 50,
+          "width": 20,
+          "depth": 10,
+          "rotation": 0
+        }
+      ],
+      "pillars": [
+        { "id": "p01", "x": -26, "z": -36 },
+        { "id": "p02", "x": -17, "z": -36 },
+        { "id": "p03", "x": -1, "z": -36 },
+        { "id": "p04", "x": 9, "z": -36 },
+        { "id": "p05", "x": 48, "z": -39 },
+        { "id": "p06", "x": 66, "z": -38 },
+        { "id": "p07", "x": -29, "z": -15 },
+        { "id": "p08", "x": -18, "z": -15 },
+        { "id": "p09", "x": 20, "z": -14 },
+        { "id": "p10", "x": 41, "z": -15 },
+        { "id": "p11", "x": 54, "z": -7 },
+        { "id": "p12", "x": -36, "z": 8 },
+        { "id": "p13", "x": -19, "z": 10 },
+        { "id": "p14", "x": -1, "z": 10 },
+        { "id": "p15", "x": 8, "z": 10 },
+        { "id": "p16", "x": 18, "z": 10 },
+        { "id": "p17", "x": 29, "z": 10 },
+        { "id": "p18", "x": 40, "z": 10 },
+        { "id": "p19", "x": 52, "z": 11 },
+        { "id": "p20", "x": 62, "z": 11 },
+        { "id": "p21", "x": -57, "z": 21 },
+        { "id": "p22", "x": -21, "z": 22 },
+        { "id": "p23", "x": 0, "z": 22 },
+        { "id": "p24", "x": 16, "z": 22 },
+        { "id": "p25", "x": 37, "z": 21 },
+        { "id": "p26", "x": 50, "z": 22 },
+        { "id": "p27", "x": 67, "z": 24 },
+        { "id": "p28", "x": -8, "z": 52 },
+        { "id": "p29", "x": 9, "z": 52 },
+        { "id": "p30", "x": 30, "z": 52 },
+        { "id": "p31", "x": 49, "z": 52 }
+      ],
+      "landmarks": [
+        {
+          "id": "event-entry",
+          "label": "Event Entry",
+          "x": -68,
+          "z": 31,
+          "width": 10,
+          "depth": 9,
+          "height": 2.8,
+          "color": "#1d7a48"
+        },
+        {
+          "id": "bbx-display",
+          "label": "BBX Display",
+          "x": -31,
+          "z": -16,
+          "width": 18,
+          "depth": 14,
+          "height": 2.9,
+          "color": "#ff6c2f"
+        },
+        {
+          "id": "competition",
+          "label": "Scale Model Competition",
+          "x": -53,
+          "z": 7,
+          "width": 16,
+          "depth": 16,
+          "height": 2.8,
+          "color": "#91c83b"
+        },
+        {
+          "id": "registration",
+          "label": "Registration",
+          "x": -49,
+          "z": 18,
+          "width": 16,
+          "depth": 8,
+          "height": 2.2,
+          "color": "#143652"
+        },
+        {
+          "id": "stage",
+          "label": "Stage Central",
+          "x": 7,
+          "z": -10,
+          "width": 18,
+          "depth": 10,
+          "height": 3.2,
+          "color": "#22d5df"
+        },
+        {
+          "id": "dnd",
+          "label": "Dungeons & Dragons",
+          "x": 24,
+          "z": -7,
+          "width": 10,
+          "depth": 10,
+          "height": 2.7,
+          "color": "#f123d8"
+        },
+        {
+          "id": "card",
+          "label": "Card Tournaments",
+          "x": 42,
+          "z": -11,
+          "width": 16,
+          "depth": 18,
+          "height": 2.8,
+          "color": "#91c83b"
+        },
+        {
+          "id": "magic",
+          "label": "Magic",
+          "x": 56,
+          "z": -4,
+          "width": 14,
+          "depth": 16,
+          "height": 2.8,
+          "color": "#91c83b"
+        },
+        {
+          "id": "gundam",
+          "label": "Gundam Workshop",
+          "x": 13,
+          "z": 9,
+          "width": 16,
+          "depth": 10,
+          "height": 2.5,
+          "color": "#ffe247"
+        },
+        {
+          "id": "miniatures",
+          "label": "Miniature Workshop",
+          "x": 27,
+          "z": 9,
+          "width": 14,
+          "depth": 10,
+          "height": 2.5,
+          "color": "#ffe247"
+        },
+        {
+          "id": "esport",
+          "label": "Esport",
+          "x": 45,
+          "z": 10,
+          "width": 16,
+          "depth": 10,
+          "height": 2.5,
+          "color": "#ffe247"
+        },
+        {
+          "id": "artist",
+          "label": "Artist Alley",
+          "x": 49,
+          "z": 21,
+          "width": 18,
+          "depth": 8,
+          "height": 2.4,
+          "color": "#ff6c2f"
+        },
+        {
+          "id": "rc-zone",
+          "label": "RC Zone",
+          "x": 68,
+          "z": 6,
+          "width": 10,
+          "depth": 22,
+          "height": 2.8,
+          "color": "#ffe247"
+        },
+        {
+          "id": "pc-zone",
+          "label": "PC Zone",
+          "x": 68,
+          "z": 20,
+          "width": 12,
+          "depth": 18,
+          "height": 2.8,
+          "color": "#ffe247"
+        },
+        {
+          "id": "medieval",
+          "label": "Medieval Zone",
+          "x": 68,
+          "z": 30,
+          "width": 12,
+          "depth": 16,
+          "height": 2.8,
+          "color": "#ffe247"
+        },
+        {
+          "id": "cosplay-studio",
+          "label": "Cosplay Studio",
+          "x": 30,
+          "z": 42,
+          "width": 18,
+          "depth": 10,
+          "height": 2.6,
+          "color": "#ffe247"
+        },
+        {
+          "id": "cosplay-stage",
+          "label": "Cosplay Stage",
+          "x": 50,
+          "z": 42,
+          "width": 16,
+          "depth": 10,
+          "height": 2.8,
+          "color": "#22d5df"
+        },
+        {
+          "id": "lounge",
+          "label": "Exhibition Lounge",
+          "x": 9,
+          "z": 51,
+          "width": 14,
+          "depth": 8,
+          "height": 2.3,
+          "color": "#22d5df"
+        }
+      ],
+      "spots": [
+        {
+          "id": "W1",
+          "label": "West Queue",
+          "area": "Registration to main aisle handoff",
+          "x": -28,
+          "z": 11,
+          "width": 11,
+          "depth": 8,
+          "status": "available",
+          "vehicle": "Van / ute",
+          "note": "Good first stop after the event entry ramp.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 }
+          ]
+        },
+        {
+          "id": "C1",
+          "label": "Central West Hold",
+          "area": "Open bay near booths 402-405",
+          "x": -8,
+          "z": 8,
+          "width": 12,
+          "depth": 8,
+          "status": "available",
+          "vehicle": "Van / ute",
+          "note": "Best central stop before splitting north or east.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 },
+            { "x": -18, "z": 10 }
+          ]
+        },
+        {
+          "id": "C2",
+          "label": "Stage Front Hold",
+          "area": "Stage central access pocket",
+          "x": 7,
+          "z": 4,
+          "width": 10,
+          "depth": 8,
+          "status": "reserved",
+          "vehicle": "Vendor van",
+          "assignedTo": "Stage / AV",
+          "note": "Keep for stage freight and timed AV unloads.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 },
+            { "x": -18, "z": 10 },
+            { "x": 0, "z": 9 }
+          ]
+        },
+        {
+          "id": "N1",
+          "label": "North Card Hold",
+          "area": "Card tournaments turn pocket",
+          "x": 34,
+          "z": -11,
+          "width": 11,
+          "depth": 8,
+          "status": "occupied",
+          "vehicle": "Small truck",
+          "assignedTo": "TCG vendor unload",
+          "note": "Currently active. Uses the north spine to turn into the card area.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 },
+            { "x": -18, "z": 10 },
+            { "x": 5, "z": 9 },
+            { "x": 22, "z": 8 },
+            { "x": 22, "z": -8 }
+          ]
+        },
+        {
+          "id": "N2",
+          "label": "North East Hold",
+          "area": "Magic / RC crossover aisle",
+          "x": 58,
+          "z": 10,
+          "width": 10,
+          "depth": 8,
+          "status": "available",
+          "vehicle": "Van / ute",
+          "note": "Useful for RC zone and east-side stalls.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 },
+            { "x": -18, "z": 10 },
+            { "x": 5, "z": 9 },
+            { "x": 28, "z": 10 },
+            { "x": 49, "z": 10 }
+          ]
+        },
+        {
+          "id": "E1",
+          "label": "East Hall Hold",
+          "area": "Artist alley and PC zone approach",
+          "x": 60,
+          "z": 22,
+          "width": 9,
+          "depth": 8,
+          "status": "blocked",
+          "vehicle": "No parking",
+          "note": "Keep clear for the east-side cross traffic and pillar pinch point.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 },
+            { "x": -18, "z": 10 },
+            { "x": 5, "z": 9 },
+            { "x": 28, "z": 10 },
+            { "x": 49, "z": 10 },
+            { "x": 58, "z": 17 }
+          ]
+        },
+        {
+          "id": "S1",
+          "label": "South Spine Hold",
+          "area": "Center spine before cosplay",
+          "x": 23,
+          "z": 33,
+          "width": 9,
+          "depth": 14,
+          "rotation": 90,
+          "status": "reserved",
+          "vehicle": "Long van / trailer",
+          "assignedTo": "Cosplay / lounge freight",
+          "note": "Use this as the south-bound holding point before the lower hall.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 },
+            { "x": -18, "z": 10 },
+            { "x": 5, "z": 9 },
+            { "x": 22, "z": 10 },
+            { "x": 22, "z": 32 }
+          ]
+        },
+        {
+          "id": "S2",
+          "label": "Cosplay Hold",
+          "area": "South east aisle near cosplay",
+          "x": 49,
+          "z": 46,
+          "width": 12,
+          "depth": 8,
+          "status": "available",
+          "vehicle": "Van / ute",
+          "note": "Final drop point for cosplay and lounge-side vendors.",
+          "route": [
+            { "x": -67, "z": 31 },
+            { "x": -58, "z": 24 },
+            { "x": -43, "z": 15 },
+            { "x": -18, "z": 10 },
+            { "x": 5, "z": 9 },
+            { "x": 22, "z": 10 },
+            { "x": 22, "z": 32 },
+            { "x": 22, "z": 46 },
+            { "x": 45, "z": 46 }
+          ]
+        }
+      ]
+    }
   },
   "supabase": {
     "enabled": true,

@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GHMX Convention Portal</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -269,9 +277,86 @@
         </section>
 
         <section id="bumpin-panel" class="card panel">
-          <h2>Bump-in Map</h2>
-          <iframe id="bumpin-map-frame" title="Bump-in map"></iframe>
-          <a id="bumpin-map-link" class="button-link" target="_blank" rel="noreferrer">Open Bump-in Map</a>
+          <div class="panel-head">
+            <div>
+              <h2>Bump-in Map</h2>
+              <p class="hint">
+                Interactive 3D parking planner for vendor unloads. Choose a bay to fly the camera through to the selected spot.
+              </p>
+            </div>
+            <div class="inline-actions">
+              <div id="bumpin-view-toggle" class="view-toggle" role="group" aria-label="Bump-in view mode">
+                <button type="button" class="secondary active" data-bumpin-mode="layout">3D Layout</button>
+                <button type="button" class="secondary" data-bumpin-mode="navigator">Navigator</button>
+              </div>
+              <button id="bumpin-next-spot-btn" type="button">Next Available Spot</button>
+              <a id="bumpin-map-link" class="button-link" target="_blank" rel="noreferrer">Open 2D Reference Map</a>
+            </div>
+          </div>
+          <div class="bumpin-layout">
+            <section class="bumpin-stage-card">
+              <div id="bumpin-map-stage" class="bumpin-stage" data-bumpin-mode="layout" aria-label="3D bump-in hall layout">
+                <div class="bumpin-stage-overlay">
+                  <p id="bumpin-stage-eyebrow" class="eyebrow">3D Hall View</p>
+                  <h3 id="bumpin-stage-title">Bump-in Layout</h3>
+                  <p id="bumpin-stage-description">
+                    Left-drag to orbit, right-drag to move, scroll to zoom, and click a marked bay to focus it. The clean hall view shows the building shell, drive lanes, walk zones, pillars, and current unload holds.
+                  </p>
+                  <div class="bumpin-legend">
+                    <span class="bumpin-legend-chip drive">Drive Lane</span>
+                    <span class="bumpin-legend-chip walk">Walk Zone</span>
+                    <span class="bumpin-legend-chip pillar">Stone Pillar</span>
+                    <span class="bumpin-legend-chip available">Available</span>
+                    <span class="bumpin-legend-chip reserved">Reserved</span>
+                    <span class="bumpin-legend-chip occupied">Occupied</span>
+                    <span class="bumpin-legend-chip blocked">Blocked</span>
+                  </div>
+                </div>
+                <div id="bumpin-nav-controls" class="bumpin-nav-controls" aria-label="Map navigation controls">
+                  <button type="button" class="secondary" data-bumpin-nav="up" aria-label="Move up">Up</button>
+                  <div class="bumpin-nav-row">
+                    <button type="button" class="secondary" data-bumpin-nav="left" aria-label="Move left">Left</button>
+                    <button type="button" class="secondary" data-bumpin-nav="reset" aria-label="Reset view">Reset</button>
+                    <button type="button" class="secondary" data-bumpin-nav="right" aria-label="Move right">Right</button>
+                  </div>
+                  <button type="button" class="secondary" data-bumpin-nav="down" aria-label="Move down">Down</button>
+                  <div class="bumpin-nav-row">
+                    <button type="button" class="secondary" data-bumpin-nav="rotate-left" aria-label="Rotate left">Rotate L</button>
+                    <button type="button" class="secondary" data-bumpin-nav="rotate-right" aria-label="Rotate right">Rotate R</button>
+                  </div>
+                  <div class="bumpin-nav-row bumpin-nav-row-2">
+                    <button type="button" class="secondary" data-bumpin-nav="zoom-in" aria-label="Zoom in">Zoom +</button>
+                    <button type="button" class="secondary" data-bumpin-nav="zoom-out" aria-label="Zoom out">Zoom -</button>
+                  </div>
+                </div>
+              </div>
+              <p id="bumpin-scene-status" class="status"></p>
+            </section>
+
+            <aside class="bumpin-sidebar">
+              <section id="bumpin-summary-grid" class="bumpin-summary-grid" aria-live="polite"></section>
+
+              <section class="bumpin-sidebar-card">
+                <label class="field" for="bumpin-spot-filter">
+                  <span>Show Parking Bays</span>
+                  <select id="bumpin-spot-filter">
+                    <option value="available">Available spots</option>
+                    <option value="all">All spots</option>
+                    <option value="reserved">Reserved and occupied</option>
+                    <option value="blocked">Blocked spots</option>
+                  </select>
+                </label>
+                <div id="bumpin-spots-list" class="bumpin-spots-list"></div>
+              </section>
+
+              <section class="bumpin-sidebar-card bumpin-selected-card">
+                <p class="eyebrow">Selected Bay</p>
+                <h3 id="bumpin-selected-title">Choose a parking bay</h3>
+                <p id="bumpin-selected-meta" class="bumpin-selected-meta">The selected bay details will appear here.</p>
+                <p id="bumpin-selected-note" class="hint">Use the map or the list to jump the camera to an unload position.</p>
+              </section>
+            </aside>
+          </div>
         </section>
 
         <div id="user-editor-overlay" class="user-editor-overlay hidden">

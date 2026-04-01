@@ -3,6 +3,7 @@ const CONFIG_URL = "data/site-config.json";
 const STORAGE_USERS_KEY = "ghmx_users_v1";
 const STORAGE_SESSION_KEY = "ghmx_session_v1";
 const STORAGE_JUDGE_RESULTS_KEY = "ghmx_judge_results_v1";
+const STORAGE_BUMPIN_CONFIG_KEY = "ghmx_bumpin_config_v1";
 const STORAGE_MODE_LOCAL = "local";
 const STORAGE_MODE_SUPABASE = "supabase";
 const MAX_JUDGE_RESULTS = 25;
@@ -38,6 +39,15 @@ const SUPABASE_FUNCTIONS = {
   listAllJudgeResults: "portal_list_all_judge_results",
   deleteJudgeResults: "portal_delete_judge_results",
 };
+
+const BUMPIN_EDITOR_LAYERS = [
+  { value: "walls", label: "Walls", collectionKey: "walls" },
+  { value: "spots", label: "Parking Bays", collectionKey: "spots" },
+  { value: "driveZones", label: "Drive Lanes", collectionKey: "driveZones" },
+  { value: "walkZones", label: "Walk Zones", collectionKey: "walkZones" },
+  { value: "landmarks", label: "Landmarks", collectionKey: "landmarks" },
+  { value: "pillars", label: "Pillars", collectionKey: "pillars" },
+];
 
 function createDefaultBumpInParkingConfig() {
   return {
@@ -327,8 +337,13 @@ const state = {
   adminJudgeResults: [],
   selectedJudgeResultIds: new Set(),
   userSearchTerm: "",
+  bumpInConfigDraft: null,
   bumpInSpotFilter: "available",
   bumpInSelectedSpotId: "",
+  bumpInEditorDrag: null,
+  bumpInEditorPendingLayer: "",
+  bumpInEditorLayer: "spots",
+  bumpInEditorItemId: "",
   bumpInViewMode: "layout",
 };
 
@@ -400,10 +415,6 @@ const els = {
   venueMapFrame: document.getElementById("venue-map-frame"),
   venueMapLink: document.getElementById("venue-map-link"),
   bumpinMapStage: document.getElementById("bumpin-map-stage"),
-  bumpinNavControls: document.getElementById("bumpin-nav-controls"),
-  bumpinStageEyebrow: document.getElementById("bumpin-stage-eyebrow"),
-  bumpinStageTitle: document.getElementById("bumpin-stage-title"),
-  bumpinStageDescription: document.getElementById("bumpin-stage-description"),
   bumpinMapLink: document.getElementById("bumpin-map-link"),
   bumpinSceneStatus: document.getElementById("bumpin-scene-status"),
   bumpinNextSpotBtn: document.getElementById("bumpin-next-spot-btn"),
@@ -415,9 +426,20 @@ const els = {
   bumpinSelectedTitle: document.getElementById("bumpin-selected-title"),
   bumpinSelectedMeta: document.getElementById("bumpin-selected-meta"),
   bumpinSelectedNote: document.getElementById("bumpin-selected-note"),
+  bumpinEditorPalette: document.getElementById("bumpin-editor-palette"),
+  bumpinEditorForm: document.getElementById("bumpin-editor-form"),
+  bumpinEditorLayer: document.getElementById("bumpin-editor-layer"),
+  bumpinEditorItem: document.getElementById("bumpin-editor-item"),
+  bumpinEditorFields: document.getElementById("bumpin-editor-fields"),
+  bumpinEditorDeleteBtn: document.getElementById("bumpin-editor-delete-btn"),
+  bumpinEditorCopyBtn: document.getElementById("bumpin-editor-copy-btn"),
+  bumpinEditorDownloadBtn: document.getElementById("bumpin-editor-download-btn"),
+  bumpinEditorResetBtn: document.getElementById("bumpin-editor-reset-btn"),
+  bumpinEditorStatus: document.getElementById("bumpin-editor-status"),
 };
 
 let bumpInMapController = null;
+let bumpInRenderGeneration = 0;
 let bumpInIntroPending = true;
 
 init().catch((error) => {
@@ -430,6 +452,7 @@ async function init() {
   mountUserEditorOverlay();
   bindEvents();
   await Promise.all([loadConfig(), loadSeedUsers()]);
+  hydrateBumpInConfigDraft();
   renderOverview();
   configureVolunteerSection();
   configureVenueMap();
@@ -480,7 +503,24 @@ function bindEvents() {
   els.bumpinSpotsList?.addEventListener("click", onBumpInSpotListClick);
   els.bumpinNextSpotBtn?.addEventListener("click", onBumpInNextSpotClick);
   els.bumpinViewToggle?.addEventListener("click", onBumpInViewToggleClick);
-  els.bumpinNavControls?.addEventListener("click", onBumpInNavControlsClick);
+  els.bumpinMapStage?.addEventListener("pointerdown", onBumpInEditorStagePointerDown);
+  els.bumpinEditorPalette?.addEventListener("click", onBumpInEditorPaletteClick);
+  els.bumpinEditorLayer?.addEventListener("change", onBumpInEditorLayerChange);
+  els.bumpinEditorItem?.addEventListener("change", onBumpInEditorItemChange);
+  els.bumpinEditorForm?.addEventListener("submit", onBumpInEditorSubmit);
+  els.bumpinEditorDeleteBtn?.addEventListener("click", () => {
+    void deleteSelectedBumpInEditorItem();
+  });
+  els.bumpinEditorCopyBtn?.addEventListener("click", () => {
+    void copyBumpInEditorJson();
+  });
+  els.bumpinEditorDownloadBtn?.addEventListener("click", downloadBumpInEditorJson);
+  els.bumpinEditorResetBtn?.addEventListener("click", () => {
+    void resetBumpInEditorConfig();
+  });
+  window.addEventListener("pointermove", onBumpInEditorStagePointerMove);
+  window.addEventListener("pointerup", onBumpInEditorStagePointerUp);
+  window.addEventListener("pointercancel", onBumpInEditorStagePointerUp);
   els.judgeForm.addEventListener("submit", onJudgeFormSubmit);
   els.refreshResultsBtn?.addEventListener("click", () => {
     void refreshJudgeResults(true);
@@ -1446,6 +1486,13 @@ function configureVenueMap() {
 }
 
 async function configureBumpInSection() {
+  const renderGeneration = ++bumpInRenderGeneration;
+  const viewMode =
+    state.bumpInViewMode === "navigator"
+      ? "navigator"
+      : state.bumpInViewMode === "editor"
+        ? "editor"
+        : "layout";
   const mapUrl = state.config.maps.bumpInMapUrl;
 
   if (!mapUrl) {
@@ -1461,46 +1508,73 @@ async function configureBumpInSection() {
     els.bumpinSpotFilter.value = state.bumpInSpotFilter;
   }
   els.bumpinViewButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.bumpinMode === state.bumpInViewMode);
+    button.classList.toggle("active", button.dataset.bumpinMode === viewMode);
   });
-  syncBumpInStageOverlay();
+  syncBumpInStageMode(viewMode);
 
   syncBumpInSelection(parking.spots);
   renderBumpInPanel(parking.spots);
+  renderBumpInEditor();
 
   if (!els.bumpinMapStage) {
     return;
   }
 
-  if (bumpInMapController) {
-    bumpInMapController.destroy();
-    bumpInMapController = null;
-  }
+  const previousController = bumpInMapController;
+  bumpInMapController = null;
+  previousController?.destroy();
+
+  els.bumpinMapStage.innerHTML = "";
 
   if (!parking.spots.length) {
     setStatus(els.bumpinSceneStatus, "No bump-in parking bays are configured yet.", true);
     return;
   }
 
+  if (viewMode === "editor") {
+    renderBumpInStageEditor(parking);
+    setStatus(
+      els.bumpinSceneStatus,
+      "Editor ready. Drag objects in the stage to move them, then fine-tune size and rotation in the panel."
+    );
+    return;
+  }
+
   try {
     const { createBumpInMap } = await import("./bumpin-map.js");
-    bumpInMapController = createBumpInMap({
+
+    if (renderGeneration !== bumpInRenderGeneration) {
+      return;
+    }
+
+    const nextController = createBumpInMap({
       mount: els.bumpinMapStage,
-      mode: state.bumpInViewMode,
+      mode: viewMode,
       parking,
       onSpotSelect: (spotId) => {
         selectBumpInSpot(spotId);
       },
     });
+
+    if (renderGeneration !== bumpInRenderGeneration) {
+      nextController.destroy();
+      return;
+    }
+
+    bumpInMapController = nextController;
     bumpInMapController.setSelectedSpot(state.bumpInSelectedSpotId);
     setStatus(
       els.bumpinSceneStatus,
-      state.bumpInViewMode === "navigator"
+      viewMode === "navigator"
         ? "Navigator ready. Left-drag orbits, right-drag moves, scroll zooms, and clicking a bay follows its route through the 3D graph."
         : "3D layout ready. Left-drag orbits, right-drag moves, scroll zooms, and clicking a bay flies through the hall model."
     );
     updateBumpInMapVisibility(getActivePanelId() === "bumpin-panel");
   } catch (error) {
+    if (renderGeneration !== bumpInRenderGeneration) {
+      return;
+    }
+
     console.error("Failed to initialize bump-in map:", error);
     setStatus(
       els.bumpinSceneStatus,
@@ -1510,43 +1584,102 @@ async function configureBumpInSection() {
   }
 }
 
-function syncBumpInStageOverlay() {
-  const isNavigator = state.bumpInViewMode === "navigator";
+function syncBumpInStageMode(viewMode = state.bumpInViewMode) {
+  const isNavigator = viewMode === "navigator";
+  const isEditor = viewMode === "editor";
 
   if (els.bumpinMapStage) {
-    els.bumpinMapStage.dataset.bumpinMode = isNavigator ? "navigator" : "layout";
+    els.bumpinMapStage.dataset.bumpinMode = isEditor ? "editor" : isNavigator ? "navigator" : "layout";
+    els.bumpinMapStage.dataset.bumpinPlacementLayer =
+      isEditor && state.bumpInEditorPendingLayer ? state.bumpInEditorPendingLayer : "";
+    els.bumpinMapStage.classList.toggle("is-editor-placement", Boolean(isEditor && state.bumpInEditorPendingLayer));
     els.bumpinMapStage.setAttribute(
       "aria-label",
-      isNavigator ? "FSN-style 3D bump-in navigator" : "3D bump-in hall layout"
+      isEditor ? "Top-down bump-in map editor" : isNavigator ? "FSN-style 3D bump-in navigator" : "3D bump-in hall layout"
     );
   }
+}
 
-  if (els.bumpinStageEyebrow) {
-    els.bumpinStageEyebrow.textContent = isNavigator ? "FSN Ops View" : "3D Hall View";
+function hydrateBumpInConfigDraft() {
+  const storedConfig = readStoredBumpInConfigOverride();
+  state.bumpInConfigDraft = storedConfig
+    ? normalizeBumpInParkingConfig(storedConfig)
+    : normalizeBumpInParkingConfig(getBaseBumpInParkingConfigSource());
+  syncBumpInSelection(state.bumpInConfigDraft.spots);
+  syncBumpInEditorSelection();
+}
+
+function getBaseBumpInParkingConfigSource() {
+  return state.config.maps?.bumpInParking || DEFAULT_CONFIG.maps.bumpInParking;
+}
+
+function readStoredBumpInConfigOverride() {
+  try {
+    const raw = localStorage.getItem(STORAGE_BUMPIN_CONFIG_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = tryParseJson(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    console.warn("Ignoring invalid bump-in config override:", error.message);
+    return null;
   }
+}
 
-  if (els.bumpinStageTitle) {
-    els.bumpinStageTitle.textContent = isNavigator ? "Bump-in Navigator" : "Bump-in Layout";
+function saveBumpInConfigDraft() {
+  try {
+    localStorage.setItem(
+      STORAGE_BUMPIN_CONFIG_KEY,
+      JSON.stringify(serializeBumpInParkingConfig(getBumpInParkingConfig()), null, 2)
+    );
+  } catch (error) {
+    console.warn("Unable to save bump-in config override:", error.message);
   }
+}
 
-  if (els.bumpinStageDescription) {
-    els.bumpinStageDescription.textContent = isNavigator
-      ? "Left-drag to orbit, right-drag to move, scroll to zoom, and click a marked bay to follow its route through the Jurassic-style navigation graph."
-      : "Left-drag to orbit, right-drag to move, scroll to zoom, and click a marked bay to focus it. The clean hall view shows the building shell, drive lanes, walk zones, pillars, and current unload holds.";
+function clearStoredBumpInConfigOverride() {
+  try {
+    localStorage.removeItem(STORAGE_BUMPIN_CONFIG_KEY);
+  } catch (error) {
+    console.warn("Unable to clear bump-in config override:", error.message);
   }
 }
 
 function getBumpInParkingConfig() {
+  if (!state.bumpInConfigDraft) {
+    state.bumpInConfigDraft = normalizeBumpInParkingConfig(getBaseBumpInParkingConfigSource());
+  }
+
+  return state.bumpInConfigDraft;
+}
+
+function normalizeBumpInParkingConfig(source) {
   const fallback = DEFAULT_CONFIG.maps.bumpInParking;
-  const source = state.config.maps?.bumpInParking || fallback;
+  const input = source || fallback;
   return {
-    title: String(source.title || fallback.title).trim(),
-    overview: String(source.overview || fallback.overview).trim(),
-    driveZones: Array.isArray(source.driveZones) ? source.driveZones.map(normalizeBumpInZone) : [],
-    walkZones: Array.isArray(source.walkZones) ? source.walkZones.map(normalizeBumpInZone) : [],
-    pillars: Array.isArray(source.pillars) ? source.pillars.map(normalizeBumpInPillar) : [],
-    landmarks: Array.isArray(source.landmarks) ? source.landmarks.map(normalizeBumpInLandmark) : [],
-    spots: Array.isArray(source.spots) ? source.spots.map(normalizeBumpInSpot) : [],
+    title: String(input.title || fallback.title).trim(),
+    overview: String(input.overview || fallback.overview).trim(),
+    walls: Array.isArray(input.walls) ? input.walls.map(normalizeBumpInWall) : [],
+    driveZones: Array.isArray(input.driveZones) ? input.driveZones.map(normalizeBumpInZone) : [],
+    walkZones: Array.isArray(input.walkZones) ? input.walkZones.map(normalizeBumpInZone) : [],
+    pillars: Array.isArray(input.pillars) ? input.pillars.map(normalizeBumpInPillar) : [],
+    landmarks: Array.isArray(input.landmarks) ? input.landmarks.map(normalizeBumpInLandmark) : [],
+    spots: Array.isArray(input.spots) ? input.spots.map(normalizeBumpInSpot) : [],
+  };
+}
+
+function serializeBumpInParkingConfig(config = getBumpInParkingConfig()) {
+  return {
+    title: config.title,
+    overview: config.overview,
+    walls: config.walls.map(serializeBumpInWall),
+    driveZones: config.driveZones.map(serializeBumpInZone),
+    walkZones: config.walkZones.map(serializeBumpInZone),
+    pillars: config.pillars.map(serializeBumpInPillar),
+    landmarks: config.landmarks.map(serializeBumpInLandmark),
+    spots: config.spots.map(serializeBumpInSpot),
   };
 }
 
@@ -1588,6 +1721,19 @@ function normalizeBumpInZone(zone) {
     width: Math.max(4, Number(zone?.width) || 10),
     depth: Math.max(4, Number(zone?.depth) || 10),
     rotation: normalizeBumpInRotation(zone?.rotation),
+  };
+}
+
+function normalizeBumpInWall(wall) {
+  return {
+    id: String(wall?.id || createBumpInShapeId("wall", wall)).trim(),
+    label: wall?.label ? String(wall.label).trim() : "",
+    x: Number(wall?.x) || 0,
+    z: Number(wall?.z) || 0,
+    width: Math.max(2, Number(wall?.width) || 12),
+    depth: Math.max(0.5, Number(wall?.depth) || 1.2),
+    height: Math.max(2, Number(wall?.height) || 8),
+    rotation: normalizeBumpInRotation(wall?.rotation),
   };
 }
 
@@ -1652,6 +1798,532 @@ function createBumpInShapeId(prefix, shape) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")}`;
+}
+
+function serializeBumpInZone(zone) {
+  return {
+    id: zone.id,
+    ...(zone.label ? { label: zone.label } : {}),
+    x: roundBumpInExportNumber(zone.x),
+    z: roundBumpInExportNumber(zone.z),
+    width: roundBumpInExportNumber(zone.width),
+    depth: roundBumpInExportNumber(zone.depth),
+    rotation: serializeBumpInRotation(zone.rotation),
+  };
+}
+
+function serializeBumpInWall(wall) {
+  return {
+    id: wall.id,
+    ...(wall.label ? { label: wall.label } : {}),
+    x: roundBumpInExportNumber(wall.x),
+    z: roundBumpInExportNumber(wall.z),
+    width: roundBumpInExportNumber(wall.width),
+    depth: roundBumpInExportNumber(wall.depth),
+    height: roundBumpInExportNumber(wall.height),
+    rotation: serializeBumpInRotation(wall.rotation),
+  };
+}
+
+function serializeBumpInLandmark(landmark) {
+  return {
+    id: landmark.id,
+    ...(landmark.label ? { label: landmark.label } : {}),
+    x: roundBumpInExportNumber(landmark.x),
+    z: roundBumpInExportNumber(landmark.z),
+    width: roundBumpInExportNumber(landmark.width),
+    depth: roundBumpInExportNumber(landmark.depth),
+    height: roundBumpInExportNumber(landmark.height),
+    rotation: serializeBumpInRotation(landmark.rotation),
+    ...(landmark.color ? { color: landmark.color } : {}),
+  };
+}
+
+function serializeBumpInPillar(pillar) {
+  return {
+    id: pillar.id,
+    x: roundBumpInExportNumber(pillar.x),
+    z: roundBumpInExportNumber(pillar.z),
+    radius: roundBumpInExportNumber(pillar.radius),
+    height: roundBumpInExportNumber(pillar.height),
+  };
+}
+
+function serializeBumpInSpot(spot) {
+  return {
+    id: spot.id,
+    ...(spot.label ? { label: spot.label } : {}),
+    ...(spot.area ? { area: spot.area } : {}),
+    x: roundBumpInExportNumber(spot.x),
+    z: roundBumpInExportNumber(spot.z),
+    width: roundBumpInExportNumber(spot.width),
+    depth: roundBumpInExportNumber(spot.depth),
+    ...(Math.abs(spot.rotation) > 0.0001 ? { rotation: serializeBumpInRotation(spot.rotation) } : {}),
+    status: spot.status,
+    ...(spot.vehicle ? { vehicle: spot.vehicle } : {}),
+    ...(spot.assignedTo ? { assignedTo: spot.assignedTo } : {}),
+    ...(spot.note ? { note: spot.note } : {}),
+    ...(spot.route?.length ? { route: spot.route.map(serializeBumpInRoutePoint) } : {}),
+  };
+}
+
+function serializeBumpInRoutePoint(point) {
+  return {
+    x: roundBumpInExportNumber(point.x),
+    z: roundBumpInExportNumber(point.z),
+    ...(Math.abs((Number(point.y) || 11) - 11) > 0.0001 ? { y: roundBumpInExportNumber(point.y) } : {}),
+  };
+}
+
+function serializeBumpInRotation(value) {
+  return roundBumpInExportNumber((Number(value) * 180) / Math.PI);
+}
+
+function roundBumpInExportNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+
+  const rounded = Math.round(numeric * 100) / 100;
+  return Number.isInteger(rounded) ? rounded : Number(rounded.toFixed(2));
+}
+
+function getBumpInEditorLayerDefinition(layer = state.bumpInEditorLayer) {
+  return BUMPIN_EDITOR_LAYERS.find((entry) => entry.value === layer) || BUMPIN_EDITOR_LAYERS[0];
+}
+
+function getBumpInEditorItems(layer = state.bumpInEditorLayer) {
+  const layerDefinition = getBumpInEditorLayerDefinition(layer);
+  return getBumpInParkingConfig()[layerDefinition.collectionKey] || [];
+}
+
+function syncBumpInEditorSelection() {
+  const layerDefinition = getBumpInEditorLayerDefinition(state.bumpInEditorLayer);
+  const items = getBumpInEditorItems(layerDefinition.value);
+  state.bumpInEditorLayer = layerDefinition.value;
+
+  if (
+    layerDefinition.value === "spots" &&
+    !items.some((item) => item.id === state.bumpInEditorItemId) &&
+    state.bumpInSelectedSpotId &&
+    items.some((item) => item.id === state.bumpInSelectedSpotId)
+  ) {
+    state.bumpInEditorItemId = state.bumpInSelectedSpotId;
+  }
+
+  if (!items.some((item) => item.id === state.bumpInEditorItemId)) {
+    state.bumpInEditorItemId = items[0]?.id || "";
+  }
+
+  if (layerDefinition.value === "spots" && state.bumpInEditorItemId) {
+    state.bumpInSelectedSpotId = state.bumpInEditorItemId;
+  }
+}
+
+function renderBumpInEditor() {
+  if (!els.bumpinEditorLayer || !els.bumpinEditorItem || !els.bumpinEditorFields) {
+    return;
+  }
+
+  syncBumpInEditorSelection();
+  syncBumpInStageMode();
+  const layerDefinition = getBumpInEditorLayerDefinition(state.bumpInEditorLayer);
+  const items = getBumpInEditorItems(layerDefinition.value);
+  const selectedItem = items.find((item) => item.id === state.bumpInEditorItemId) || null;
+  const paletteButtons = Array.from(els.bumpinEditorPalette?.querySelectorAll("[data-bumpin-add-layer]") || []);
+
+  paletteButtons.forEach((button) => {
+    const isActive = button.dataset.bumpinAddLayer === state.bumpInEditorPendingLayer;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  els.bumpinEditorLayer.innerHTML = BUMPIN_EDITOR_LAYERS.map(
+    (entry) => `<option value="${escapeHtml(entry.value)}">${escapeHtml(entry.label)}</option>`
+  ).join("");
+  els.bumpinEditorLayer.value = layerDefinition.value;
+
+  if (!items.length) {
+    els.bumpinEditorItem.innerHTML = "<option value=''>No items available</option>";
+    els.bumpinEditorItem.disabled = true;
+    if (els.bumpinEditorDeleteBtn) {
+      els.bumpinEditorDeleteBtn.disabled = true;
+    }
+    els.bumpinEditorFields.innerHTML =
+      "<p class='bumpin-empty-state'>This layer does not have any editable items yet.</p>";
+    return;
+  }
+
+  els.bumpinEditorItem.disabled = false;
+  if (els.bumpinEditorDeleteBtn) {
+    els.bumpinEditorDeleteBtn.disabled = !selectedItem;
+  }
+  els.bumpinEditorItem.innerHTML = items
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getBumpInEditorItemLabel(layerDefinition.value, item))}</option>`)
+    .join("");
+  els.bumpinEditorItem.value = selectedItem?.id || items[0].id;
+
+  els.bumpinEditorFields.innerHTML = selectedItem
+    ? renderBumpInEditorFields(layerDefinition.value, selectedItem)
+    : "<p class='bumpin-empty-state'>Choose an item to start editing.</p>";
+}
+
+function renderBumpInStageEditor(parking = getBumpInParkingConfig()) {
+  if (!els.bumpinMapStage) {
+    return;
+  }
+
+  const viewport = getBumpInEditorViewport(parking);
+  const selectedLayer = state.bumpInEditorLayer;
+  const selectedId = state.bumpInEditorItemId;
+  const selectedSpot = parking.spots.find((spot) => spot.id === state.bumpInSelectedSpotId);
+  const routeMarkup =
+    selectedLayer === "spots" && selectedSpot?.route?.length
+      ? renderBumpInEditorRouteMarkup(selectedSpot, viewport)
+      : "";
+
+  els.bumpinMapStage.innerHTML = `
+    <div class="bumpin-stage-editor">
+      <svg
+        id="bumpin-editor-svg"
+        class="bumpin-editor-svg"
+        viewBox="${escapeHtml(
+          `${roundBumpInExportNumber(viewport.minX)} ${roundBumpInExportNumber(viewport.minY)} ${roundBumpInExportNumber(
+            viewport.width
+          )} ${roundBumpInExportNumber(viewport.height)}`
+        )}"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          <pattern id="bumpin-editor-grid-pattern" width="8" height="8" patternUnits="userSpaceOnUse">
+            <path d="M 8 0 L 0 0 0 8" fill="none" stroke="rgba(125,147,166,0.18)" stroke-width="0.12"></path>
+          </pattern>
+        </defs>
+        <rect class="bumpin-editor-floor" x="${escapeHtml(String(viewport.minX))}" y="${escapeHtml(
+          String(viewport.minY)
+        )}" width="${escapeHtml(String(viewport.width))}" height="${escapeHtml(String(viewport.height))}"></rect>
+        <rect class="bumpin-editor-grid" x="${escapeHtml(String(viewport.minX))}" y="${escapeHtml(
+          String(viewport.minY)
+        )}" width="${escapeHtml(String(viewport.width))}" height="${escapeHtml(String(viewport.height))}"></rect>
+        ${renderBumpInEditorRectLayer("walls", parking.walls, viewport, { shapeClass: "wall" }, selectedLayer, selectedId)}
+        ${renderBumpInEditorRectLayer(
+          "walkZones",
+          parking.walkZones,
+          viewport,
+          { shapeClass: "walk-zone" },
+          selectedLayer,
+          selectedId
+        )}
+        ${renderBumpInEditorRectLayer(
+          "driveZones",
+          parking.driveZones,
+          viewport,
+          { shapeClass: "drive-zone" },
+          selectedLayer,
+          selectedId
+        )}
+        ${renderBumpInEditorRectLayer(
+          "landmarks",
+          parking.landmarks,
+          viewport,
+          { shapeClass: "landmark" },
+          selectedLayer,
+          selectedId
+        )}
+        ${renderBumpInEditorCircleLayer("pillars", parking.pillars, viewport, selectedLayer, selectedId)}
+        ${routeMarkup}
+        ${renderBumpInEditorRectLayer("spots", parking.spots, viewport, { shapeClass: "spot" }, selectedLayer, selectedId)}
+      </svg>
+    </div>
+  `;
+}
+
+function getBumpInEditorViewport(parking = getBumpInParkingConfig()) {
+  const items = [
+    ...(parking.walls || []),
+    ...(parking.driveZones || []),
+    ...(parking.walkZones || []),
+    ...(parking.pillars || []),
+    ...(parking.landmarks || []),
+    ...(parking.spots || []),
+  ];
+  const bounds = items.reduce(
+    (accumulator, item) => extendBumpInEditorBounds(accumulator, item),
+    { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
+  );
+  const minX = Number.isFinite(bounds.minX) ? bounds.minX - 12 : -60;
+  const maxX = Number.isFinite(bounds.maxX) ? bounds.maxX + 12 : 60;
+  const minZ = Number.isFinite(bounds.minZ) ? bounds.minZ - 12 : -60;
+  const maxZ = Number.isFinite(bounds.maxZ) ? bounds.maxZ + 12 : 60;
+  return {
+    minX,
+    minY: -maxZ,
+    width: maxX - minX,
+    height: maxZ - minZ,
+    minZ,
+    maxZ,
+    centerX: (minX + maxX) / 2,
+    centerZ: (minZ + maxZ) / 2,
+  };
+}
+
+function extendBumpInEditorBounds(bounds, item) {
+  const radius = item.radius || Math.sqrt(Math.pow(item.width || 0, 2) + Math.pow(item.depth || 0, 2)) / 2 || 1;
+  return {
+    minX: Math.min(bounds.minX, (item.x || 0) - radius),
+    maxX: Math.max(bounds.maxX, (item.x || 0) + radius),
+    minZ: Math.min(bounds.minZ, (item.z || 0) - radius),
+    maxZ: Math.max(bounds.maxZ, (item.z || 0) + radius),
+  };
+}
+
+function renderBumpInEditorRectLayer(layer, items, viewport, { shapeClass }, selectedLayer, selectedId) {
+  return (items || [])
+    .map((item) => renderBumpInEditorRectShape(layer, item, viewport, shapeClass, selectedLayer === layer && selectedId === item.id))
+    .join("");
+}
+
+function renderBumpInEditorRectShape(layer, item, viewport, shapeClass, isSelected) {
+  const x = item.x;
+  const y = -item.z;
+  const rotationDegrees = -formatBumpInRotationDegrees(item.rotation);
+  const itemClass = shapeClass === "spot" ? `${shapeClass} status-${item.status}` : shapeClass;
+  const styleAttribute =
+    layer === "landmarks" && item.color ? ` style="--editor-item-fill:${escapeHtml(item.color)}"` : "";
+  return `
+    <g
+      class="bumpin-editor-item ${escapeHtml(itemClass)}${isSelected ? " selected" : ""}"
+      data-editor-layer="${escapeHtml(layer)}"
+      data-editor-id="${escapeHtml(item.id)}"
+      transform="translate(${escapeHtml(String(x))} ${escapeHtml(String(y))}) rotate(${escapeHtml(String(rotationDegrees))})"
+      ${styleAttribute}
+    >
+      <rect
+        class="bumpin-editor-shape"
+        x="${escapeHtml(String(-item.width / 2))}"
+        y="${escapeHtml(String(-item.depth / 2))}"
+        width="${escapeHtml(String(item.width))}"
+        height="${escapeHtml(String(item.depth))}"
+        rx="${shapeClass === "spot" ? "0.8" : "0.4"}"
+      ></rect>
+      <text class="bumpin-editor-label" x="0" y="0">${escapeHtml(getBumpInEditorCanvasLabel(layer, item))}</text>
+    </g>
+  `;
+}
+
+function renderBumpInEditorCircleLayer(layer, items, viewport, selectedLayer, selectedId) {
+  return (items || [])
+    .map((item) => {
+      const isSelected = selectedLayer === layer && selectedId === item.id;
+      return `
+        <g
+          class="bumpin-editor-item pillar${isSelected ? " selected" : ""}"
+          data-editor-layer="${escapeHtml(layer)}"
+          data-editor-id="${escapeHtml(item.id)}"
+          transform="translate(${escapeHtml(String(item.x))} ${escapeHtml(String(-item.z))})"
+        >
+          <circle class="bumpin-editor-shape" cx="0" cy="0" r="${escapeHtml(String(item.radius * 1.8))}"></circle>
+          <text class="bumpin-editor-label" x="0" y="0">${escapeHtml(getBumpInEditorCanvasLabel(layer, item))}</text>
+        </g>
+      `;
+    })
+    .join("");
+}
+
+function renderBumpInEditorRouteMarkup(spot, viewport) {
+  const routePoints = [...spot.route, { x: spot.x, z: spot.z }];
+  const polylinePoints = routePoints.map((point) => `${roundBumpInExportNumber(point.x)},${roundBumpInExportNumber(-point.z)}`).join(" ");
+  return `
+    <polyline class="bumpin-editor-route" points="${escapeHtml(polylinePoints)}"></polyline>
+  `;
+}
+
+function getBumpInEditorCanvasLabel(layer, item) {
+  if (layer === "spots") {
+    return item.id;
+  }
+  return item.label || item.id;
+}
+
+function getBumpInEditorItemLabel(layer, item) {
+  switch (layer) {
+    case "spots":
+      return `${item.label} (${item.id})`;
+    case "walls":
+    case "driveZones":
+    case "walkZones":
+    case "landmarks":
+      return item.label ? `${item.label} (${item.id})` : item.id;
+    default:
+      return item.id;
+  }
+}
+
+function renderBumpInEditorFields(layer, item) {
+  switch (layer) {
+    case "walls":
+      return [
+        renderBumpInEditorTextField("ID", "id", item.id),
+        renderBumpInEditorTextField("Label", "label", item.label),
+        renderBumpInEditorNumberField("X Position", "x", item.x),
+        renderBumpInEditorNumberField("Z Position", "z", item.z),
+        renderBumpInEditorNumberField("Width", "width", item.width, { min: 2 }),
+        renderBumpInEditorNumberField("Thickness", "depth", item.depth, { min: 0.5 }),
+        renderBumpInEditorNumberField("Height", "height", item.height, { min: 2 }),
+        renderBumpInEditorNumberField("Rotation (deg)", "rotationDegrees", formatBumpInRotationDegrees(item.rotation)),
+      ].join("");
+    case "driveZones":
+    case "walkZones":
+      return [
+        renderBumpInEditorTextField("ID", "id", item.id),
+        renderBumpInEditorTextField("Label", "label", item.label),
+        renderBumpInEditorNumberField("X Position", "x", item.x),
+        renderBumpInEditorNumberField("Z Position", "z", item.z),
+        renderBumpInEditorNumberField("Width", "width", item.width, { min: 4 }),
+        renderBumpInEditorNumberField("Depth", "depth", item.depth, { min: 4 }),
+        renderBumpInEditorNumberField("Rotation (deg)", "rotationDegrees", formatBumpInRotationDegrees(item.rotation)),
+      ].join("");
+    case "landmarks":
+      return [
+        renderBumpInEditorTextField("ID", "id", item.id),
+        renderBumpInEditorTextField("Label", "label", item.label),
+        renderBumpInEditorNumberField("X Position", "x", item.x),
+        renderBumpInEditorNumberField("Z Position", "z", item.z),
+        renderBumpInEditorNumberField("Width", "width", item.width, { min: 4 }),
+        renderBumpInEditorNumberField("Depth", "depth", item.depth, { min: 4 }),
+        renderBumpInEditorNumberField("Height", "height", item.height, { min: 1.5 }),
+        renderBumpInEditorNumberField("Rotation (deg)", "rotationDegrees", formatBumpInRotationDegrees(item.rotation)),
+        renderBumpInEditorTextField("Color", "color", item.color, { type: "color" }),
+      ].join("");
+    case "pillars":
+      return [
+        renderBumpInEditorTextField("ID", "id", item.id),
+        renderBumpInEditorNumberField("X Position", "x", item.x),
+        renderBumpInEditorNumberField("Z Position", "z", item.z),
+        renderBumpInEditorNumberField("Radius", "radius", item.radius, { min: 0.5 }),
+        renderBumpInEditorNumberField("Height", "height", item.height, { min: 1.8 }),
+      ].join("");
+    case "spots":
+    default:
+      return [
+        renderBumpInEditorTextField("ID", "id", item.id),
+        renderBumpInEditorTextField("Label", "label", item.label),
+        renderBumpInEditorTextField("Area", "area", item.area),
+        renderBumpInEditorSelectField("Status", "status", item.status, [
+          { value: "available", label: "Available" },
+          { value: "reserved", label: "Reserved" },
+          { value: "occupied", label: "Occupied" },
+          { value: "blocked", label: "Blocked" },
+        ]),
+        renderBumpInEditorNumberField("X Position", "x", item.x),
+        renderBumpInEditorNumberField("Z Position", "z", item.z),
+        renderBumpInEditorNumberField("Width", "width", item.width, { min: 6 }),
+        renderBumpInEditorNumberField("Depth", "depth", item.depth, { min: 6 }),
+        renderBumpInEditorNumberField("Rotation (deg)", "rotationDegrees", formatBumpInRotationDegrees(item.rotation)),
+        renderBumpInEditorTextField("Vehicle", "vehicle", item.vehicle),
+        renderBumpInEditorTextField("Assigned To", "assignedTo", item.assignedTo),
+        renderBumpInEditorTextareaField("Note", "note", item.note),
+        renderBumpInEditorTextareaField("Route Points", "routeText", formatBumpInRouteText(item.route), {
+          placeholder: "-67,31\n-58,24\n-43,15",
+          hint: "One route point per line using x,z or x,z,y.",
+        }),
+      ].join("");
+  }
+}
+
+function renderBumpInEditorTextField(label, name, value, { type = "text" } = {}) {
+  return `
+    <label class="field">
+      <span>${escapeHtml(label)}</span>
+      <input name="${escapeHtml(name)}" type="${escapeHtml(type)}" value="${escapeHtml(String(value ?? ""))}" />
+    </label>
+  `;
+}
+
+function renderBumpInEditorNumberField(label, name, value, { min, max, step = "0.1" } = {}) {
+  const attributes = [
+    `name="${escapeHtml(name)}"`,
+    'type="number"',
+    `value="${escapeHtml(formatCompactNumber(Number(value) || 0))}"`,
+    `step="${escapeHtml(String(step))}"`,
+  ];
+  if (Number.isFinite(min)) {
+    attributes.push(`min="${escapeHtml(String(min))}"`);
+  }
+  if (Number.isFinite(max)) {
+    attributes.push(`max="${escapeHtml(String(max))}"`);
+  }
+
+  return `
+    <label class="field">
+      <span>${escapeHtml(label)}</span>
+      <input ${attributes.join(" ")} />
+    </label>
+  `;
+}
+
+function renderBumpInEditorSelectField(label, name, value, options) {
+  return `
+    <label class="field">
+      <span>${escapeHtml(label)}</span>
+      <select name="${escapeHtml(name)}">
+        ${options
+          .map(
+            (option) =>
+              `<option value="${escapeHtml(option.value)}"${option.value === value ? " selected" : ""}>${escapeHtml(option.label)}</option>`
+          )
+          .join("")}
+      </select>
+    </label>
+  `;
+}
+
+function renderBumpInEditorTextareaField(label, name, value, { placeholder = "", hint = "" } = {}) {
+  return `
+    <label class="field field-full">
+      <span>${escapeHtml(label)}</span>
+      <textarea name="${escapeHtml(name)}" rows="4" placeholder="${escapeHtml(placeholder)}">${escapeHtml(
+        String(value ?? "")
+      )}</textarea>
+      ${hint ? `<small class="bumpin-editor-hint">${escapeHtml(hint)}</small>` : ""}
+    </label>
+  `;
+}
+
+function formatBumpInRotationDegrees(value) {
+  return roundBumpInExportNumber((Number(value) * 180) / Math.PI);
+}
+
+function formatBumpInRouteText(route = []) {
+  return route
+    .map((point) => {
+      const parts = [roundBumpInExportNumber(point.x), roundBumpInExportNumber(point.z)];
+      if (Math.abs((Number(point.y) || 11) - 11) > 0.0001) {
+        parts.push(roundBumpInExportNumber(point.y));
+      }
+      return parts.join(",");
+    })
+    .join("\n");
+}
+
+function parseBumpInRouteText(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const parts = line.split(",").map((part) => part.trim());
+      if (parts.length < 2 || parts.length > 3 || parts.some((part) => part === "" || !Number.isFinite(Number(part)))) {
+        throw new Error(`Route line ${index + 1} must use x,z or x,z,y.`);
+      }
+
+      return normalizeBumpInRoutePoint({
+        x: Number(parts[0]),
+        z: Number(parts[1]),
+        ...(parts[2] ? { y: Number(parts[2]) } : {}),
+      });
+    });
 }
 
 function getBumpInFilteredSpots(spots) {
@@ -1779,6 +2451,9 @@ function onBumpInSpotFilterChange(event) {
   const parking = getBumpInParkingConfig();
   syncBumpInSelection(parking.spots);
   renderBumpInPanel(parking.spots);
+  if (state.bumpInViewMode === "editor") {
+    renderBumpInStageEditor(parking);
+  }
 }
 
 function onBumpInSpotListClick(event) {
@@ -1788,6 +2463,34 @@ function onBumpInSpotListClick(event) {
   }
 
   selectBumpInSpot(button.dataset.spotId);
+}
+
+function onBumpInEditorLayerChange(event) {
+  state.bumpInEditorLayer = event.target.value || BUMPIN_EDITOR_LAYERS[0].value;
+  syncBumpInEditorSelection();
+  renderBumpInEditor();
+
+  if (state.bumpInEditorLayer === "spots" && state.bumpInEditorItemId) {
+    selectBumpInSpot(state.bumpInEditorItemId);
+    return;
+  }
+
+  if (state.bumpInViewMode === "editor") {
+    renderBumpInStageEditor();
+  }
+}
+
+function onBumpInEditorItemChange(event) {
+  state.bumpInEditorItemId = event.target.value || "";
+  if (state.bumpInEditorLayer === "spots" && state.bumpInEditorItemId) {
+    selectBumpInSpot(state.bumpInEditorItemId);
+    return;
+  }
+
+  renderBumpInEditor();
+  if (state.bumpInViewMode === "editor") {
+    renderBumpInStageEditor();
+  }
 }
 
 function onBumpInNextSpotClick() {
@@ -1808,7 +2511,12 @@ function onBumpInViewToggleClick(event) {
     return;
   }
 
-  const nextMode = button.dataset.bumpinMode === "navigator" ? "navigator" : "layout";
+  const nextMode =
+    button.dataset.bumpinMode === "navigator"
+      ? "navigator"
+      : button.dataset.bumpinMode === "editor"
+        ? "editor"
+        : "layout";
   if (nextMode === state.bumpInViewMode) {
     return;
   }
@@ -1818,42 +2526,390 @@ function onBumpInViewToggleClick(event) {
   void configureBumpInSection();
 }
 
-function onBumpInNavControlsClick(event) {
-  const button = event.target.closest("[data-bumpin-nav]");
-  if (!button || !bumpInMapController) {
+function onBumpInEditorPaletteClick(event) {
+  const button = event.target.closest("[data-bumpin-add-layer]");
+  if (!button) {
     return;
   }
 
-  const action = String(button.dataset.bumpinNav || "").trim();
-  const handled =
-    action === "up" ? bumpInMapController.nudgeView(0, -8) :
-    action === "down" ? bumpInMapController.nudgeView(0, 8) :
-    action === "left" ? bumpInMapController.nudgeView(-8, 0) :
-    action === "right" ? bumpInMapController.nudgeView(8, 0) :
-    action === "rotate-left" ? bumpInMapController.orbitBy(Math.PI / 10) :
-    action === "rotate-right" ? bumpInMapController.orbitBy(-Math.PI / 10) :
-    action === "zoom-in" ? bumpInMapController.zoomBy(-0.18) :
-    action === "zoom-out" ? bumpInMapController.zoomBy(0.18) :
-    action === "reset" ? bumpInMapController.resetView() :
-    false;
+  const layer = button.dataset.bumpinAddLayer || "spots";
+  const nextPendingLayer = state.bumpInEditorPendingLayer === layer ? "" : layer;
 
-  if (!handled) {
+  state.bumpInEditorLayer = layer;
+  syncBumpInEditorSelection();
+  state.bumpInEditorPendingLayer = nextPendingLayer;
+  renderBumpInEditor();
+
+  if (state.bumpInViewMode !== "editor") {
+    state.bumpInViewMode = "editor";
+    bumpInIntroPending = true;
+    void configureBumpInSection();
+  } else {
+    renderBumpInStageEditor();
+  }
+
+  setStatus(
+    els.bumpinEditorStatus,
+    nextPendingLayer
+      ? `Placement mode: click the map to place a new ${getBumpInEditorLayerNoun(nextPendingLayer)}.`
+      : "Placement mode cancelled."
+  );
+}
+
+function onBumpInEditorStagePointerDown(event) {
+  if (state.bumpInViewMode !== "editor") {
     return;
   }
 
-  const messages = {
-    up: "Moved camera up the hall.",
-    down: "Moved camera down the hall.",
-    left: "Moved camera left across the hall.",
-    right: "Moved camera right across the hall.",
-    "rotate-left": "Rotated the map left.",
-    "rotate-right": "Rotated the map right.",
-    "zoom-in": "Zoomed in on the hall.",
-    "zoom-out": "Zoomed out from the hall.",
-    reset: "Reset the map view.",
+  const target = event.target.closest("[data-editor-layer][data-editor-id]");
+  if (!target) {
+    if (!state.bumpInEditorPendingLayer) {
+      return;
+    }
+
+    const pointerWorld = getBumpInEditorPointerWorldPosition(event);
+    if (!pointerWorld) {
+      return;
+    }
+
+    event.preventDefault();
+    void addBumpInEditorItem(state.bumpInEditorPendingLayer, pointerWorld);
+    return;
+  }
+
+  const layer = String(target.dataset.editorLayer || "");
+  const itemId = String(target.dataset.editorId || "");
+  const pointerWorld = getBumpInEditorPointerWorldPosition(event);
+  if (!pointerWorld) {
+    return;
+  }
+
+  const items = getBumpInEditorItems(layer);
+  const item = items.find((entry) => entry.id === itemId);
+  if (!item) {
+    return;
+  }
+
+  event.preventDefault();
+  state.bumpInEditorPendingLayer = "";
+  setBumpInEditorSelection(layer, itemId, { syncSpotSelection: layer === "spots", rerenderStage: true });
+  state.bumpInEditorDrag = {
+    itemId,
+    layer,
+    pointerId: event.pointerId,
+    startPointerX: pointerWorld.x,
+    startPointerZ: pointerWorld.z,
+    startX: item.x,
+    startZ: item.z,
   };
+  els.bumpinMapStage.classList.add("is-editor-dragging");
+}
 
-  setStatus(els.bumpinSceneStatus, messages[action] || "Updated the map view.");
+function onBumpInEditorStagePointerMove(event) {
+  const dragState = state.bumpInEditorDrag;
+  if (!dragState || dragState.pointerId !== event.pointerId || state.bumpInViewMode !== "editor") {
+    return;
+  }
+
+  const pointerWorld = getBumpInEditorPointerWorldPosition(event);
+  if (!pointerWorld) {
+    return;
+  }
+
+  const item = getBumpInEditorItems(dragState.layer).find((entry) => entry.id === dragState.itemId);
+  if (!item) {
+    return;
+  }
+
+  const nextX = dragState.startX + (pointerWorld.x - dragState.startPointerX);
+  const nextZ = dragState.startZ + (pointerWorld.z - dragState.startPointerZ);
+  item.x = Math.round(nextX * 10) / 10;
+  item.z = Math.round(nextZ * 10) / 10;
+
+  if (dragState.layer === "spots") {
+    state.bumpInSelectedSpotId = item.id;
+  }
+
+  renderBumpInStageEditor();
+}
+
+function onBumpInEditorStagePointerUp(event) {
+  const dragState = state.bumpInEditorDrag;
+  if (!dragState || dragState.pointerId !== event.pointerId) {
+    return;
+  }
+
+  state.bumpInEditorDrag = null;
+  els.bumpinMapStage.classList.remove("is-editor-dragging");
+  saveBumpInConfigDraft();
+  renderBumpInPanel(getBumpInParkingConfig().spots);
+  renderBumpInEditor();
+  setStatus(els.bumpinEditorStatus, "Moved the selected item in the editor.");
+}
+
+function getBumpInEditorPointerWorldPosition(event) {
+  const svg = els.bumpinMapStage?.querySelector("#bumpin-editor-svg");
+  if (!svg) {
+    return null;
+  }
+
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  const screenMatrix = svg.getScreenCTM();
+  if (!screenMatrix) {
+    return null;
+  }
+
+  const transformed = point.matrixTransform(screenMatrix.inverse());
+  if (!Number.isFinite(transformed.x) || !Number.isFinite(transformed.y)) {
+    return null;
+  }
+
+  return {
+    x: transformed.x,
+    z: -transformed.y,
+  };
+}
+
+async function addBumpInEditorItem(layer, position = null) {
+  const layerDefinition = getBumpInEditorLayerDefinition(layer);
+  const draft = getBumpInParkingConfig();
+  const collection = draft[layerDefinition.collectionKey];
+  const item = createDefaultBumpInEditorItem(layerDefinition.value, draft);
+
+  if (position) {
+    item.x = roundBumpInExportNumber(position.x);
+    item.z = roundBumpInExportNumber(position.z);
+  }
+
+  collection.push(item);
+  saveBumpInConfigDraft();
+  state.bumpInEditorPendingLayer = "";
+  setBumpInEditorSelection(layerDefinition.value, item.id, { syncSpotSelection: layerDefinition.value === "spots" });
+  await configureBumpInSection();
+  setStatus(
+    els.bumpinEditorStatus,
+    position
+      ? `Placed ${getBumpInEditorItemLabel(layerDefinition.value, item)}.`
+      : `Added ${getBumpInEditorItemLabel(layerDefinition.value, item)}.`
+  );
+}
+
+function createDefaultBumpInEditorItem(layer, parking = getBumpInParkingConfig()) {
+  const viewport = getBumpInEditorViewport(parking);
+  const nextIndex = getBumpInEditorItems(layer).length + 1;
+  const centerX = roundBumpInExportNumber(viewport.centerX);
+  const centerZ = roundBumpInExportNumber(viewport.centerZ);
+
+  switch (layer) {
+    case "walls":
+      return normalizeBumpInWall({
+        id: buildUniqueBumpInItemId(layer, `wall-${nextIndex}`),
+        label: `Wall ${nextIndex}`,
+        x: centerX,
+        z: centerZ,
+        width: 18,
+        depth: 1.2,
+        height: 8,
+        rotation: 0,
+      });
+    case "driveZones":
+      return normalizeBumpInZone({
+        id: buildUniqueBumpInItemId(layer, `drive-${nextIndex}`),
+        label: `Drive Lane ${nextIndex}`,
+        x: centerX,
+        z: centerZ,
+        width: 22,
+        depth: 8,
+        rotation: 0,
+      });
+    case "walkZones":
+      return normalizeBumpInZone({
+        id: buildUniqueBumpInItemId(layer, `walk-${nextIndex}`),
+        label: `Walk Zone ${nextIndex}`,
+        x: centerX,
+        z: centerZ,
+        width: 18,
+        depth: 8,
+        rotation: 0,
+      });
+    case "pillars":
+      return normalizeBumpInPillar({
+        id: buildUniqueBumpInItemId(layer, `pillar-${nextIndex}`),
+        x: centerX,
+        z: centerZ,
+        radius: 0.8,
+        height: 3.2,
+      });
+    case "landmarks":
+      return normalizeBumpInLandmark({
+        id: buildUniqueBumpInItemId(layer, `landmark-${nextIndex}`),
+        label: `Landmark ${nextIndex}`,
+        x: centerX,
+        z: centerZ,
+        width: 12,
+        depth: 10,
+        height: 2.6,
+        rotation: 0,
+        color: "#223245",
+      });
+    case "spots":
+    default:
+      return normalizeBumpInSpot({
+        id: buildUniqueBumpInItemId(layer, `spot-${nextIndex}`),
+        label: `Parking Bay ${nextIndex}`,
+        area: "Placed in editor",
+        x: centerX,
+        z: centerZ,
+        width: 12,
+        depth: 8,
+        status: "available",
+        vehicle: "Van / ute",
+        note: "Placed in the drag-and-drop editor.",
+      });
+  }
+}
+
+function buildUniqueBumpInItemId(layer, preferredBase) {
+  const collection = getBumpInEditorItems(layer);
+  const sanitize = (value) =>
+    String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  const base = sanitize(preferredBase) || "ITEM";
+  let candidate = base;
+  let index = 2;
+  while (collection.some((item) => item.id === candidate)) {
+    candidate = `${base}-${index}`;
+    index += 1;
+  }
+  return candidate;
+}
+
+async function deleteSelectedBumpInEditorItem() {
+  const layerDefinition = getBumpInEditorLayerDefinition(state.bumpInEditorLayer);
+  const collection = getBumpInEditorItems(layerDefinition.value);
+  const itemIndex = collection.findIndex((item) => item.id === state.bumpInEditorItemId);
+  if (itemIndex < 0) {
+    setStatus(els.bumpinEditorStatus, "Choose an item to delete first.", true);
+    return;
+  }
+
+  const item = collection[itemIndex];
+  const confirmed = window.confirm(`Delete ${getBumpInEditorItemLabel(layerDefinition.value, item)} from the local editor?`);
+  if (!confirmed) {
+    return;
+  }
+
+  collection.splice(itemIndex, 1);
+  if (layerDefinition.value === "spots" && state.bumpInSelectedSpotId === item.id) {
+    state.bumpInSelectedSpotId = getBumpInParkingConfig().spots[0]?.id || "";
+  }
+  syncBumpInEditorSelection();
+  saveBumpInConfigDraft();
+  await configureBumpInSection();
+  setStatus(els.bumpinEditorStatus, "Deleted the selected item.");
+}
+
+function setBumpInEditorSelection(layer, itemId, { syncSpotSelection = false, rerenderStage = false } = {}) {
+  state.bumpInEditorLayer = layer;
+  state.bumpInEditorItemId = itemId;
+  if (syncSpotSelection && layer === "spots") {
+    state.bumpInSelectedSpotId = itemId;
+    renderBumpInPanel(getBumpInParkingConfig().spots);
+  }
+  renderBumpInEditor();
+  if (rerenderStage && state.bumpInViewMode === "editor") {
+    renderBumpInStageEditor();
+  }
+}
+
+async function onBumpInEditorSubmit(event) {
+  event.preventDefault();
+
+  const layerDefinition = getBumpInEditorLayerDefinition(state.bumpInEditorLayer);
+  const draft = getBumpInParkingConfig();
+  const collection = draft[layerDefinition.collectionKey] || [];
+  const itemIndex = collection.findIndex((item) => item.id === state.bumpInEditorItemId);
+
+  if (itemIndex < 0) {
+    setStatus(els.bumpinEditorStatus, "Choose an item to edit first.", true);
+    return;
+  }
+
+  try {
+    const formData = new FormData(event.currentTarget);
+    const nextItem = buildBumpInEditorItem(layerDefinition.value, collection[itemIndex], formData);
+    validateBumpInEditorItemId(collection, itemIndex, nextItem.id);
+
+    const previousId = collection[itemIndex].id;
+    collection[itemIndex] = nextItem;
+    state.bumpInEditorItemId = nextItem.id;
+
+    if (layerDefinition.value === "spots" && state.bumpInSelectedSpotId === previousId) {
+      state.bumpInSelectedSpotId = nextItem.id;
+    }
+
+    saveBumpInConfigDraft();
+    syncBumpInSelection(draft.spots);
+    syncBumpInEditorSelection();
+    await configureBumpInSection();
+    setStatus(els.bumpinEditorStatus, `Updated ${getBumpInEditorItemLabel(layerDefinition.value, nextItem)}.`);
+  } catch (error) {
+    setStatus(els.bumpinEditorStatus, error.message || "Unable to update the map item.", true);
+  }
+}
+
+async function copyBumpInEditorJson() {
+  const serialized = JSON.stringify(serializeBumpInParkingConfig(), null, 2);
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(serialized);
+    } else {
+      const helper = document.createElement("textarea");
+      helper.value = serialized;
+      helper.setAttribute("readonly", "true");
+      helper.style.position = "absolute";
+      helper.style.left = "-9999px";
+      document.body.appendChild(helper);
+      helper.select();
+      document.execCommand("copy");
+      helper.remove();
+    }
+
+    setStatus(els.bumpinEditorStatus, "Copied bump-in parking JSON to the clipboard.");
+  } catch (error) {
+    setStatus(els.bumpinEditorStatus, "Clipboard copy failed. Use Download JSON instead.", true);
+  }
+}
+
+function downloadBumpInEditorJson() {
+  const blob = new Blob([JSON.stringify(serializeBumpInParkingConfig(), null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ghmx-bumpin-parking-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  setStatus(els.bumpinEditorStatus, "Downloaded the current bump-in parking JSON.");
+}
+
+async function resetBumpInEditorConfig() {
+  const confirmed = window.confirm("Reset the bump-in map editor back to the repo version and clear local browser edits?");
+  if (!confirmed) {
+    return;
+  }
+
+  clearStoredBumpInConfigOverride();
+  state.bumpInConfigDraft = normalizeBumpInParkingConfig(getBaseBumpInParkingConfigSource());
+  syncBumpInSelection(state.bumpInConfigDraft.spots);
+  syncBumpInEditorSelection();
+  await configureBumpInSection();
+  setStatus(els.bumpinEditorStatus, "Reset local bump-in map edits back to the repo version.");
 }
 
 function selectBumpInSpot(spotId) {
@@ -1864,10 +2920,147 @@ function selectBumpInSpot(spotId) {
   }
 
   state.bumpInSelectedSpotId = selectedSpot.id;
+  if (state.bumpInEditorLayer === "spots") {
+    state.bumpInEditorItemId = selectedSpot.id;
+  }
   renderBumpInPanel(parking.spots);
+  renderBumpInEditor();
+  if (state.bumpInViewMode === "editor") {
+    renderBumpInStageEditor(parking);
+  }
 
   if (bumpInMapController?.focusSpot(selectedSpot.id)) {
     setStatus(els.bumpinSceneStatus, `Flying camera to ${selectedSpot.label}.`);
+  }
+}
+
+function getBumpInEditorLayerNoun(layer) {
+  switch (layer) {
+    case "walls":
+      return "wall";
+    case "driveZones":
+      return "road";
+    case "walkZones":
+      return "walk zone";
+    case "landmarks":
+      return "landmark";
+    case "pillars":
+      return "pillar";
+    case "spots":
+    default:
+      return "car spot";
+  }
+}
+
+function buildBumpInEditorItem(layer, currentItem, formData) {
+  switch (layer) {
+    case "walls":
+      return normalizeBumpInWall({
+        id: readBumpInEditorTextValue(formData, "id", "Wall ID is required."),
+        label: readBumpInEditorTextValue(formData, "label", "Wall label is required."),
+        x: readBumpInEditorNumberValue(formData, "x", "X position is required."),
+        z: readBumpInEditorNumberValue(formData, "z", "Z position is required."),
+        width: readBumpInEditorNumberValue(formData, "width", "Width is required.", { min: 2 }),
+        depth: readBumpInEditorNumberValue(formData, "depth", "Thickness is required.", { min: 0.5 }),
+        height: readBumpInEditorNumberValue(formData, "height", "Height is required.", { min: 2 }),
+        rotation: readBumpInEditorRotationValue(formData, "rotationDegrees"),
+      });
+    case "driveZones":
+    case "walkZones":
+      return normalizeBumpInZone({
+        id: readBumpInEditorTextValue(formData, "id", "Item ID is required."),
+        label: readBumpInEditorTextValue(formData, "label", "Item label is required."),
+        x: readBumpInEditorNumberValue(formData, "x", "X position is required."),
+        z: readBumpInEditorNumberValue(formData, "z", "Z position is required."),
+        width: readBumpInEditorNumberValue(formData, "width", "Width is required.", { min: 4 }),
+        depth: readBumpInEditorNumberValue(formData, "depth", "Depth is required.", { min: 4 }),
+        rotation: readBumpInEditorRotationValue(formData, "rotationDegrees"),
+      });
+    case "landmarks":
+      return normalizeBumpInLandmark({
+        id: readBumpInEditorTextValue(formData, "id", "Landmark ID is required."),
+        label: readBumpInEditorTextValue(formData, "label", "Landmark label is required."),
+        x: readBumpInEditorNumberValue(formData, "x", "X position is required."),
+        z: readBumpInEditorNumberValue(formData, "z", "Z position is required."),
+        width: readBumpInEditorNumberValue(formData, "width", "Width is required.", { min: 4 }),
+        depth: readBumpInEditorNumberValue(formData, "depth", "Depth is required.", { min: 4 }),
+        height: readBumpInEditorNumberValue(formData, "height", "Height is required.", { min: 1.5 }),
+        rotation: readBumpInEditorRotationValue(formData, "rotationDegrees"),
+        color: readBumpInEditorTextValue(formData, "color", "Landmark color is required."),
+      });
+    case "pillars":
+      return normalizeBumpInPillar({
+        id: readBumpInEditorTextValue(formData, "id", "Pillar ID is required."),
+        x: readBumpInEditorNumberValue(formData, "x", "X position is required."),
+        z: readBumpInEditorNumberValue(formData, "z", "Z position is required."),
+        radius: readBumpInEditorNumberValue(formData, "radius", "Radius is required.", { min: 0.5 }),
+        height: readBumpInEditorNumberValue(formData, "height", "Height is required.", { min: 1.8 }),
+      });
+    case "spots":
+    default:
+      return normalizeBumpInSpot({
+        id: readBumpInEditorTextValue(formData, "id", "Parking bay ID is required."),
+        label: readBumpInEditorTextValue(formData, "label", "Parking bay label is required."),
+        area: readBumpInEditorTextValue(formData, "area"),
+        x: readBumpInEditorNumberValue(formData, "x", "X position is required."),
+        z: readBumpInEditorNumberValue(formData, "z", "Z position is required."),
+        width: readBumpInEditorNumberValue(formData, "width", "Width is required.", { min: 6 }),
+        depth: readBumpInEditorNumberValue(formData, "depth", "Depth is required.", { min: 6 }),
+        rotation: readBumpInEditorRotationValue(formData, "rotationDegrees"),
+        status: normalizeBumpInSpotStatus(formData.get("status")),
+        vehicle: readBumpInEditorTextValue(formData, "vehicle"),
+        assignedTo: readBumpInEditorTextValue(formData, "assignedTo"),
+        note: readBumpInEditorTextValue(formData, "note"),
+        route: parseBumpInRouteText(formData.get("routeText")),
+        dock: currentItem.dock,
+        slot: currentItem.slot,
+      });
+  }
+}
+
+function readBumpInEditorTextValue(formData, key, errorMessage = "") {
+  const value = String(formData.get(key) || "").trim();
+  if (!value && errorMessage) {
+    throw new Error(errorMessage);
+  }
+
+  return value;
+}
+
+function readBumpInEditorNumberValue(formData, key, errorMessage, { min = -Infinity, max = Infinity } = {}) {
+  const raw = String(formData.get(key) || "").trim();
+  const value = Number(raw);
+  if (!raw || !Number.isFinite(value)) {
+    throw new Error(errorMessage);
+  }
+  if (value < min || value > max) {
+    throw new Error(errorMessage);
+  }
+
+  return value;
+}
+
+function readBumpInEditorRotationValue(formData, key) {
+  const raw = String(formData.get(key) || "").trim();
+  if (!raw) {
+    return 0;
+  }
+
+  const degrees = Number(raw);
+  if (!Number.isFinite(degrees)) {
+    throw new Error("Rotation must be a valid number.");
+  }
+
+  return (degrees * Math.PI) / 180;
+}
+
+function validateBumpInEditorItemId(collection, currentIndex, nextId) {
+  const normalizedId = String(nextId || "").trim().toLowerCase();
+  const duplicate = collection.some(
+    (item, index) => index !== currentIndex && String(item.id || "").trim().toLowerCase() === normalizedId
+  );
+  if (duplicate) {
+    throw new Error("Item IDs must be unique within the selected layer.");
   }
 }
 

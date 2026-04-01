@@ -288,6 +288,7 @@
               <div id="bumpin-view-toggle" class="view-toggle" role="group" aria-label="Bump-in view mode">
                 <button type="button" class="secondary active" data-bumpin-mode="layout">3D Layout</button>
                 <button type="button" class="secondary" data-bumpin-mode="navigator">Navigator</button>
+                <button type="button" class="secondary" data-bumpin-mode="editor">Editor</button>
               </div>
               <button id="bumpin-next-spot-btn" type="button">Next Available Spot</button>
               <a id="bumpin-map-link" class="button-link" target="_blank" rel="noreferrer">Open 2D Reference Map</a>
@@ -295,41 +296,7 @@
           </div>
           <div class="bumpin-layout">
             <section class="bumpin-stage-card">
-              <div id="bumpin-map-stage" class="bumpin-stage" data-bumpin-mode="layout" aria-label="3D bump-in hall layout">
-                <div class="bumpin-stage-overlay">
-                  <p id="bumpin-stage-eyebrow" class="eyebrow">3D Hall View</p>
-                  <h3 id="bumpin-stage-title">Bump-in Layout</h3>
-                  <p id="bumpin-stage-description">
-                    Left-drag to orbit, right-drag to move, scroll to zoom, and click a marked bay to focus it. The clean hall view shows the building shell, drive lanes, walk zones, pillars, and current unload holds.
-                  </p>
-                  <div class="bumpin-legend">
-                    <span class="bumpin-legend-chip drive">Drive Lane</span>
-                    <span class="bumpin-legend-chip walk">Walk Zone</span>
-                    <span class="bumpin-legend-chip pillar">Stone Pillar</span>
-                    <span class="bumpin-legend-chip available">Available</span>
-                    <span class="bumpin-legend-chip reserved">Reserved</span>
-                    <span class="bumpin-legend-chip occupied">Occupied</span>
-                    <span class="bumpin-legend-chip blocked">Blocked</span>
-                  </div>
-                </div>
-                <div id="bumpin-nav-controls" class="bumpin-nav-controls" aria-label="Map navigation controls">
-                  <button type="button" class="secondary" data-bumpin-nav="up" aria-label="Move up">Up</button>
-                  <div class="bumpin-nav-row">
-                    <button type="button" class="secondary" data-bumpin-nav="left" aria-label="Move left">Left</button>
-                    <button type="button" class="secondary" data-bumpin-nav="reset" aria-label="Reset view">Reset</button>
-                    <button type="button" class="secondary" data-bumpin-nav="right" aria-label="Move right">Right</button>
-                  </div>
-                  <button type="button" class="secondary" data-bumpin-nav="down" aria-label="Move down">Down</button>
-                  <div class="bumpin-nav-row">
-                    <button type="button" class="secondary" data-bumpin-nav="rotate-left" aria-label="Rotate left">Rotate L</button>
-                    <button type="button" class="secondary" data-bumpin-nav="rotate-right" aria-label="Rotate right">Rotate R</button>
-                  </div>
-                  <div class="bumpin-nav-row bumpin-nav-row-2">
-                    <button type="button" class="secondary" data-bumpin-nav="zoom-in" aria-label="Zoom in">Zoom +</button>
-                    <button type="button" class="secondary" data-bumpin-nav="zoom-out" aria-label="Zoom out">Zoom -</button>
-                  </div>
-                </div>
-              </div>
+              <div id="bumpin-map-stage" class="bumpin-stage" data-bumpin-mode="layout" aria-label="3D bump-in hall layout"></div>
               <p id="bumpin-scene-status" class="status"></p>
             </section>
 
@@ -354,6 +321,48 @@
                 <h3 id="bumpin-selected-title">Choose a parking bay</h3>
                 <p id="bumpin-selected-meta" class="bumpin-selected-meta">The selected bay details will appear here.</p>
                 <p id="bumpin-selected-note" class="hint">Use the map or the list to jump the camera to an unload position.</p>
+              </section>
+
+              <section class="bumpin-sidebar-card bumpin-editor-card">
+                <p class="eyebrow">Map Editor</p>
+                <h3>Adjust Layout</h3>
+                <p class="hint">Use the `Editor` view to drag items around, then fine-tune them here. Local browser edits only.</p>
+                <div id="bumpin-editor-palette" class="inline-actions bumpin-editor-palette">
+                  <button type="button" class="secondary" data-bumpin-add-layer="walls">Add Wall</button>
+                  <button type="button" class="secondary" data-bumpin-add-layer="driveZones">Add Road</button>
+                  <button type="button" class="secondary" data-bumpin-add-layer="walkZones">Add Walk</button>
+                  <button type="button" class="secondary" data-bumpin-add-layer="pillars">Add Pillar</button>
+                  <button type="button" class="secondary" data-bumpin-add-layer="spots">Add Car Spot</button>
+                  <button type="button" class="secondary" data-bumpin-add-layer="landmarks">Add Landmark</button>
+                </div>
+                <form id="bumpin-editor-form" class="bumpin-editor-form">
+                  <div class="bumpin-editor-grid">
+                    <label class="field" for="bumpin-editor-layer">
+                      <span>Edit Layer</span>
+                      <select id="bumpin-editor-layer">
+                        <option value="walls">Walls</option>
+                        <option value="spots">Parking Bays</option>
+                        <option value="driveZones">Drive Lanes</option>
+                        <option value="walkZones">Walk Zones</option>
+                        <option value="landmarks">Landmarks</option>
+                        <option value="pillars">Pillars</option>
+                      </select>
+                    </label>
+                    <label class="field" for="bumpin-editor-item">
+                      <span>Edit Item</span>
+                      <select id="bumpin-editor-item"></select>
+                    </label>
+                  </div>
+                  <div id="bumpin-editor-fields" class="bumpin-editor-fields"></div>
+                  <div class="inline-actions bumpin-editor-actions">
+                    <button type="submit">Apply Changes</button>
+                    <button id="bumpin-editor-delete-btn" type="button" class="danger">Delete Selected</button>
+                    <button id="bumpin-editor-copy-btn" type="button" class="secondary">Copy JSON</button>
+                    <button id="bumpin-editor-download-btn" type="button" class="secondary">Download JSON</button>
+                    <button id="bumpin-editor-reset-btn" type="button" class="danger">Reset Local Edits</button>
+                  </div>
+                </form>
+                <p id="bumpin-editor-status" class="status"></p>
               </section>
             </aside>
           </div>

@@ -284,6 +284,7 @@ export function createBumpInMap({ mount, parking, onSpotSelect, mode = "layout" 
       controls.dispose();
       mount.classList.remove("is-dragging");
       disposeScene(scene);
+      renderer.forceContextLoss?.();
       renderer.dispose();
       renderer.domElement.remove();
     },
@@ -316,7 +317,14 @@ function dedupeCurvePoints(points) {
 }
 
 function createLayout(parking) {
-  const items = [...(parking.driveZones || []), ...(parking.walkZones || []), ...(parking.pillars || []), ...(parking.landmarks || []), ...(parking.spots || [])];
+  const items = [
+    ...(parking.walls || []),
+    ...(parking.driveZones || []),
+    ...(parking.walkZones || []),
+    ...(parking.pillars || []),
+    ...(parking.landmarks || []),
+    ...(parking.spots || []),
+  ];
   const bounds = items.reduce((accumulator, item) => extendBounds(accumulator, item), { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity });
   const minX = Number.isFinite(bounds.minX) ? bounds.minX - 16 : -60;
   const maxX = Number.isFinite(bounds.maxX) ? bounds.maxX + 16 : 60;
@@ -378,8 +386,10 @@ function buildLayoutEnvironment(scene, layout, parking) {
 
   addLayoutWalls(scene, layout);
   addEntryMarker(scene, parking);
+  (parking.walls || []).forEach((wall) => addLayoutCustomWall(scene, wall));
   (parking.walkZones || []).forEach((zone) => addLayoutZone(scene, zone, { topColor: LAYOUT.walk, edgeColor: LAYOUT.walkEdge, height: 0.62, opacity: 0.94, stripeColor: 0xe4ebf0, stripeOpacity: 0.78, stripeInset: 2.2, stripeSize: 0.35, emissive: 0.02 }));
   (parking.driveZones || []).forEach((zone) => addLayoutZone(scene, zone, { topColor: LAYOUT.drive, edgeColor: LAYOUT.driveEdge, height: 0.44, opacity: 0.96, stripeColor: LAYOUT.driveStripe, stripeOpacity: 0.88, stripeInset: 2.4, stripeSize: 0.55, emissive: 0.18 }));
+  (parking.landmarks || []).forEach((landmark) => addLayoutLandmark(scene, landmark));
   (parking.pillars || []).forEach((pillar) => addLayoutPillar(scene, pillar));
 }
 
@@ -420,6 +430,56 @@ function addLayoutWalls(scene, layout) {
   );
   wallOutline.position.copy(northWall.position);
   scene.add(wallOutline);
+}
+
+function addLayoutCustomWall(scene, wall) {
+  const group = new THREE.Group();
+  group.position.set(wall.x, 0, wall.z);
+  group.rotation.y = wall.rotation;
+  scene.add(group);
+
+  const wallHeight = Math.max(wall.height, 2);
+  const footing = new THREE.Mesh(
+    new THREE.BoxGeometry(wall.width, 0.4, Math.max(wall.depth + 0.18, wall.depth)),
+    new THREE.MeshStandardMaterial({ color: 0xd6e0e6, roughness: 0.86, metalness: 0.03 }),
+  );
+  footing.position.y = 0.2;
+  footing.castShadow = true;
+  footing.receiveShadow = true;
+  group.add(footing);
+
+  const panel = new THREE.Mesh(
+    new THREE.BoxGeometry(wall.width, wallHeight, wall.depth),
+    new THREE.MeshStandardMaterial({
+      color: LAYOUT.wall,
+      emissive: new THREE.Color(LAYOUT.wall).multiplyScalar(0.03),
+      emissiveIntensity: 1,
+      roughness: 0.72,
+      metalness: 0.03,
+    }),
+  );
+  panel.position.y = wallHeight / 2;
+  panel.castShadow = true;
+  panel.receiveShadow = true;
+  group.add(panel);
+
+  const outline = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(wall.width + 0.16, wallHeight + 0.04, wall.depth + 0.16)),
+    new THREE.LineBasicMaterial({ color: LAYOUT.wallEdge, transparent: true, opacity: 0.62 }),
+  );
+  outline.position.copy(panel.position);
+  group.add(outline);
+
+  if (wall.label) {
+    const label = createTextSprite(wall.label, {
+      background: "#f7fafc",
+      color: "#0f2434",
+      width: Math.max(180, Math.round(wall.label.length * 14)),
+      height: 70,
+    });
+    label.position.set(0, wallHeight + 1.4, 0);
+    group.add(label);
+  }
 }
 
 function addEntryMarker(scene, parking) {
@@ -572,6 +632,8 @@ function buildNavigatorEnvironment(scene, layout, parking) {
     scene.add(tower);
   });
 
+  (parking.walls || []).forEach((wall) => addNavigatorCustomWall(scene, wall));
+
   (parking.driveZones || []).forEach((zone) => {
     const group = new THREE.Group();
     group.position.set(zone.x, 0.4, zone.z);
@@ -635,8 +697,63 @@ function buildNavigatorEnvironment(scene, layout, parking) {
     group.add(crown);
     const label = createTextSprite(landmark.label, { background: "#02111d", color: "#dcfbff", width: Math.max(240, Math.round(landmark.label.length * 18)), height: 88 });
     label.position.set(0, towerHeight + 3.1, 0);
-    scene.add(label);
+    group.add(label);
   });
+}
+
+function addNavigatorCustomWall(scene, wall) {
+  const group = new THREE.Group();
+  group.position.set(wall.x, 0, wall.z);
+  group.rotation.y = wall.rotation;
+  scene.add(group);
+
+  const wallHeight = Math.max(wall.height, 4.2);
+  const baseGlow = new THREE.Mesh(
+    new THREE.BoxGeometry(wall.width + 0.18, 0.06, wall.depth + 0.18),
+    new THREE.MeshBasicMaterial({ color: NAV.gridGlow, transparent: true, opacity: 0.24 }),
+  );
+  baseGlow.position.y = 0.03;
+  group.add(baseGlow);
+
+  const core = new THREE.Mesh(
+    new THREE.BoxGeometry(wall.width, wallHeight, wall.depth),
+    new THREE.MeshStandardMaterial({
+      color: 0x092235,
+      emissive: new THREE.Color(NAV.gridGlow).multiplyScalar(0.08),
+      emissiveIntensity: 1,
+      metalness: 0.24,
+      roughness: 0.22,
+      transparent: true,
+      opacity: 0.42,
+    }),
+  );
+  core.position.y = wallHeight / 2;
+  group.add(core);
+
+  const outline = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(wall.width + 0.18, wallHeight + 0.04, wall.depth + 0.18)),
+    new THREE.LineBasicMaterial({ color: NAV.gridGlow, transparent: true, opacity: 0.78 }),
+  );
+  outline.position.copy(core.position);
+  group.add(outline);
+
+  const topRail = new THREE.Mesh(
+    new THREE.BoxGeometry(Math.max(wall.width - 0.5, 0.45), 0.08, Math.max(wall.depth + 0.08, 0.18)),
+    new THREE.MeshBasicMaterial({ color: 0xe7fcff, transparent: true, opacity: 0.82 }),
+  );
+  topRail.position.set(0, wallHeight + 0.08, 0);
+  group.add(topRail);
+
+  if (wall.label) {
+    const label = createTextSprite(wall.label, {
+      background: "#02111d",
+      color: "#dcfbff",
+      width: Math.max(200, Math.round(wall.label.length * 16)),
+      height: 76,
+    });
+    label.position.set(0, wallHeight + 2.3, 0);
+    group.add(label);
+  }
 }
 
 function createSpotRecords(scene, spots, viewMode) {
